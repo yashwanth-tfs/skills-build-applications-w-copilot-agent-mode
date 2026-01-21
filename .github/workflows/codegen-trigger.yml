@@ -13,7 +13,9 @@ jobs:
   parse-issue:
     name: Parse Issue and Trigger Codespace
     runs-on: ubuntu-latest
-    if: contains(github.event.issue.labels.*.name, 'auto-generate')
+    if: |
+      contains(github.event.issue.labels.*.name, 'python') || 
+      contains(github.event.issue.labels.*.name, 'angular')
     outputs:
       project_type: ${{ steps.parse.outputs.project_type }}
       project_name: ${{ steps.parse.outputs.project_name }}
