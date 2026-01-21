@@ -539,11 +539,36 @@ ENV/
 
 
 def generate_fastapi_project(project_name, config, output_dir):
-    """Generate FastAPI project structure"""
+    """Generate FastAPI project structure following enterprise template"""
     print(f"Generating FastAPI project: {project_name}")
+    print("Following FastAPI enterprise template structure...")
     
     project_path = output_dir / project_name
     project_path.mkdir(parents=True, exist_ok=True)
+    
+    # Create layered directory structure as per template
+    app_dir = project_path / 'app'
+    app_dir.mkdir(exist_ok=True)
+    
+    # Create subdirectories
+    (app_dir / 'api' / 'routes').mkdir(parents=True, exist_ok=True)
+    (app_dir / 'core').mkdir(exist_ok=True)
+    (app_dir / 'models' / 'domain').mkdir(parents=True, exist_ok=True)
+    (app_dir / 'models' / 'schemas').mkdir(parents=True, exist_ok=True)
+    (app_dir / 'services').mkdir(exist_ok=True)
+    (app_dir / 'repositories').mkdir(parents=True, exist_ok=True)
+    (app_dir / 'db').mkdir(exist_ok=True)
+    (project_path / 'tests' / 'unit').mkdir(parents=True, exist_ok=True)
+    (project_path / 'tests' / 'integration').mkdir(parents=True, exist_ok=True)
+    
+    # Create __init__.py files
+    for subdir in ['api', 'api/routes', 'core', 'models', 'models/domain', 'models/schemas', 
+                   'services', 'repositories', 'db']:
+        (app_dir / subdir / '__init__.py').write_text('')
+    (app_dir / '__init__.py').write_text('')
+    (project_path / 'tests' / '__init__.py').write_text('')
+    (project_path / 'tests' / 'unit' / '__init__.py').write_text('')
+    (project_path / 'tests' / 'integration' / '__init__.py').write_text('')
     
     # Create requirements.txt
     requirements = [
