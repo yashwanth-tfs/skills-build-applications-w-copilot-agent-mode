@@ -1,0 +1,7 @@
+{
+  "issue_number": 11,
+  "project_type": "python",
+  "project_name": "my-audit",
+  "branch": "codegen/my-audit-11",
+  "issue_body": "### Project Name\n\nmy-audit\n\n### Framework\n\nFastAPI\n\n### Database\n\nPostgreSQL\n\n### Additional Features\n\n- [ ] User Authentication\n- [x] REST API\n- [ ] GraphQL API\n- [ ] Celery (Task Queue)\n- [ ] Docker Support\n- [ ] Unit Tests\n\n### Project Description\n\ncreate custom project with below api:\nGET /api/audit-logs\n \n\nQuery params: user_id, action, resource_type, start_date, end_date, page, limit\n\nResponse: paginated audit logs\n\nFilters by multiple criteria\n\nSupports date range queries\n\n### Confirmation\n\n- [x] I have reviewed the project requirements\n- [x] I understand this will create a new branch and PR\n"
+}
