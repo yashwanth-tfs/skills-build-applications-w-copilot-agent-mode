@@ -1,0 +1,46 @@
+name: Setup Repository Labels
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/setup-labels.yml'
+
+permissions:
+  issues: write
+
+jobs:
+  create-labels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create required labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = [
+              { name: 'codegen', color: '0E8A16', description: 'Automated code generation' },
+              { name: 'python', color: '3776AB', description: 'Python project' },
+              { name: 'angular', color: 'DD0031', description: 'Angular project' },
+              { name: 'auto-generate', color: 'FBCA04', description: 'Auto-generate code' }
+            ];
+            
+            for (const label of labels) {
+              try {
+                await github.rest.issues.createLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: label.name,
+                  color: label.color,
+                  description: label.description
+                });
+                console.log(`✅ Created label: ${label.name}`);
+              } catch (error) {
+                if (error.status === 422) {
+                  console.log(`ℹ️  Label already exists: ${label.name}`);
+                } else {
+                  console.log(`❌ Error creating label ${label.name}: ${error.message}`);
+                }
+              }
+            }
