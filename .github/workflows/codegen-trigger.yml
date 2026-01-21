@@ -111,7 +111,6 @@ jobs:
       - name: Generate project code
         id: generate
         run: |
-          cd codegen-automator
           chmod +x scripts/generate-project.sh
           ./scripts/generate-project.sh "${{ needs.parse-issue.outputs.project_type }}" "${{ needs.parse-issue.outputs.issue_number }}"
           
