@@ -1,0 +1,160 @@
+name: CodeGen Automator - Generate Project
+
+on:
+  issues:
+    types: [opened, labeled]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  parse-issue:
+    name: Parse Issue and Trigger Codespace
+    runs-on: ubuntu-latest
+    if: contains(github.event.issue.labels.*.name, 'auto-generate')
+    outputs:
+      project_type: ${{ steps.parse.outputs.project_type }}
+      project_name: ${{ steps.parse.outputs.project_name }}
+      issue_number: ${{ github.event.issue.number }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Parse issue body
+        id: parse
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issueBody = context.payload.issue.body;
+            const issueTitle = context.payload.issue.title;
+            
+            // Determine project type from labels
+            let projectType = 'unknown';
+            const labels = context.payload.issue.labels.map(l => l.name);
+            
+            if (labels.includes('python')) {
+              projectType = 'python';
+            } else if (labels.includes('angular')) {
+              projectType = 'angular';
+            }
+            
+            // Parse project name from issue body
+            const projectNameMatch = issueBody.match(/### Project Name\s*\n\s*(.+)/);
+            const projectName = projectNameMatch ? projectNameMatch[1].trim() : 'generated-project';
+            
+            core.setOutput('project_type', projectType);
+            core.setOutput('project_name', projectName);
+            
+            // Add comment to issue
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              body: `🚀 **Code generation initiated!**\n\nProject Type: \`${projectType}\`\nProject Name: \`${projectName}\`\n\nA GitHub Codespace will be prepared with your generated code. You'll be notified when it's ready for review.`
+            });
+      
+      - name: Create branch for generated code
+        id: create_branch
+        run: |
+          BRANCH_NAME="codegen/${{ steps.parse.outputs.project_name }}-${{ github.event.issue.number }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH_NAME"
+          git push -u origin "$BRANCH_NAME"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+          
+      - name: Store metadata
+        run: |
+          mkdir -p .codegen-metadata
+          cat > .codegen-metadata/issue-${{ github.event.issue.number }}.json << EOF
+          {
+            "issue_number": ${{ github.event.issue.number }},
+            "project_type": "${{ steps.parse.outputs.project_type }}",
+            "project_name": "${{ steps.parse.outputs.project_name }}",
+            "branch": "${{ steps.create_branch.outputs.branch_name }}",
+            "issue_body": $(echo '${{ github.event.issue.body }}' | jq -Rs .)
+          }
+          EOF
+          git add .codegen-metadata
+          git commit -m "Add metadata for issue #${{ github.event.issue.number }}"
+          git push
+
+  generate-code:
+    name: Generate Project Code
+    needs: parse-issue
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: codegen/${{ needs.parse-issue.outputs.project_name }}-${{ needs.parse-issue.outputs.issue_number }}
+          
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        run: |
+          npm install -g @angular/cli
+          pip install cookiecutter
+          
+      - name: Generate project code
+        id: generate
+        run: |
+          cd codegen-automator
+          chmod +x scripts/generate-project.sh
+          ./scripts/generate-project.sh "${{ needs.parse-issue.outputs.project_type }}" "${{ needs.parse-issue.outputs.issue_number }}"
+          
+      - name: Commit generated code
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Generate ${{ needs.parse-issue.outputs.project_type }} project: ${{ needs.parse-issue.outputs.project_name }}" || echo "No changes to commit"
+          git push
+          
+      - name: Comment on issue with Codespace link
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branchName = `codegen/${{ needs.parse-issue.outputs.project_name }}-${{ needs.parse-issue.outputs.issue_number }}`;
+            const codespaceUrl = `https://github.com/${{ github.repository }}/codespaces/new?ref=${branchName}`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ needs.parse-issue.outputs.issue_number }},
+              body: `✅ **Code generation complete!**\n\n` +
+                    `📦 Project: \`${{ needs.parse-issue.outputs.project_name }}\`\n` +
+                    `🌿 Branch: \`${branchName}\`\n\n` +
+                    `**Next Steps:**\n` +
+                    `1. Open in Codespace: [Launch Codespace](${codespaceUrl})\n` +
+                    `2. Review the generated code\n` +
+                    `3. Make any necessary modifications\n` +
+                    `4. Comment \`/approve\` to create a Pull Request\n` +
+                    `5. Comment \`/reject\` to close this issue\n\n` +
+                    `💡 The Codespace will have all dependencies pre-installed and ready to use.`
+            });
+
+  wait-for-approval:
+    name: Wait for Human Approval
+    needs: [parse-issue, generate-code]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Wait for approval comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.info('Waiting for approval comment (/approve or /reject)...');
+            core.info('This job will complete when user comments on the issue.');

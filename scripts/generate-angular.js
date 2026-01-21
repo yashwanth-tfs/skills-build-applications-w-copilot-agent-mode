@@ -1,0 +1,343 @@
+#!/usr/bin/env node
+
+/**
+ * Angular Project Generator
+ * Generates an Angular project based on issue metadata
+ */
+
+const fs = require('fs');
+const path = require('path');
+const { execSync } = require('child_process');
+
+function parseIssueBody(issueBody) {
+    const config = {
+        features: [],
+        styling: 'CSS',
+        version: 'Angular 17 (Latest)',
+        architecture: 'Standalone Components'
+    };
+    
+    // Extract Angular version
+    const versionMatch = issueBody.match(/### Angular Version\s*\n\s*(.+)/);
+    if (versionMatch) {
+        config.version = versionMatch[1].trim();
+    }
+    
+    // Extract styling
+    const stylingMatch = issueBody.match(/### Styling Framework\s*\n\s*(.+)/);
+    if (stylingMatch) {
+        config.styling = stylingMatch[1].trim();
+    }
+    
+    // Extract architecture
+    const archMatch = issueBody.match(/### Project Structure\s*\n\s*(.+)/);
+    if (archMatch) {
+        config.architecture = archMatch[1].trim();
+    }
+    
+    // Extract description
+    const descMatch = issueBody.match(/### Project Description\s*\n\s*(.+)/m);
+    if (descMatch) {
+        config.description = descMatch[1].trim();
+    }
+    
+    // Extract features
+    if (issueBody.includes('- [X] Routing') || issueBody.includes('- [x] Routing')) {
+        config.features.push('routing');
+    }
+    if (issueBody.includes('- [X] State Management') || issueBody.includes('- [x] State Management')) {
+        config.features.push('ngrx');
+    }
+    if (issueBody.includes('- [X] HTTP Client') || issueBody.includes('- [x] HTTP Client')) {
+        config.features.push('http');
+    }
+    if (issueBody.includes('- [X] Forms') || issueBody.includes('- [x] Forms')) {
+        config.features.push('forms');
+    }
+    if (issueBody.includes('- [X] Authentication') || issueBody.includes('- [x] Authentication')) {
+        config.features.push('auth');
+    }
+    if (issueBody.includes('- [X] Unit Tests') || issueBody.includes('- [x] Unit Tests')) {
+        config.features.push('tests');
+    }
+    if (issueBody.includes('- [X] E2E Tests') || issueBody.includes('- [x] E2E Tests')) {
+        config.features.push('e2e');
+    }
+    if (issueBody.includes('- [X] Docker') || issueBody.includes('- [x] Docker')) {
+        config.features.push('docker');
+    }
+    if (issueBody.includes('- [X] PWA') || issueBody.includes('- [x] PWA')) {
+        config.features.push('pwa');
+    }
+    
+    return config;
+}
+
+function generateAngularProject(projectName, config, outputDir) {
+    console.log(`Generating Angular project: ${projectName}`);
+    console.log(`Configuration:`, JSON.stringify(config, null, 2));
+    
+    const projectPath = path.join(outputDir, projectName);
+    
+    // Determine Angular CLI options
+    let cliOptions = [
+        '--skip-git',
+        '--directory', projectName
+    ];
+    
+    // Styling
+    if (config.styling.toLowerCase().includes('scss')) {
+        cliOptions.push('--style=scss');
+    } else if (config.styling.toLowerCase().includes('css')) {
+        cliOptions.push('--style=css');
+    }
+    
+    // Routing
+    if (config.features.includes('routing')) {
+        cliOptions.push('--routing=true');
+    }
+    
+    // Standalone components
+    if (config.architecture.includes('Standalone')) {
+        cliOptions.push('--standalone=true');
+    }
+    
+    // Create Angular project
+    try {
+        console.log(`Running: ng new ${cliOptions.join(' ')}`);
+        execSync(`cd ${outputDir} && ng new ${cliOptions.join(' ')}`, { 
+            stdio: 'inherit',
+            shell: '/bin/bash'
+        });
+    } catch (error) {
+        console.error('Error creating Angular project:', error.message);
+        // Create basic structure manually if ng new fails
+        createBasicAngularStructure(projectPath, config);
+    }
+    
+    // Add additional packages based on features
+    const packages = [];
+    
+    if (config.styling.toLowerCase().includes('tailwind')) {
+        packages.push('tailwindcss', 'postcss', 'autoprefixer');
+    } else if (config.styling.toLowerCase().includes('material')) {
+        packages.push('@angular/material', '@angular/cdk');
+    } else if (config.styling.toLowerCase().includes('bootstrap')) {
+        packages.push('bootstrap');
+    }
+    
+    if (config.features.includes('ngrx')) {
+        packages.push('@ngrx/store', '@ngrx/effects', '@ngrx/store-devtools');
+    }
+    
+    if (config.features.includes('e2e')) {
+        packages.push('cypress', '--save-dev');
+    }
+    
+    // Create package.json additions file
+    if (packages.length > 0) {
+        const packageJsonPath = path.join(projectPath, 'additional-packages.txt');
+        fs.writeFileSync(packageJsonPath, 
+            `# Install these additional packages:\nnpm install ${packages.join(' ')}\n`
+        );
+    }
+    
+    // Create README
+    const readmeContent = `# ${projectName}
+
+${config.description || 'Angular application generated by CodeGen Automator'}
+
+## Features
+${config.features.map(f => `- ${f}`).join('\n')}
+
+## Setup
+
+### Install dependencies
+\`\`\`bash
+npm install
+\`\`\`
+
+${packages.length > 0 ? `### Install additional packages
+\`\`\`bash
+npm install ${packages.join(' ')}
+\`\`\`
+` : ''}
+
+### Development server
+\`\`\`bash
+ng serve
+\`\`\`
+
+Navigate to \`http://localhost:4200/\`
+
+### Build
+\`\`\`bash
+ng build
+\`\`\`
+
+${config.features.includes('tests') ? `### Run tests
+\`\`\`bash
+ng test
+\`\`\`
+` : ''}
+
+${config.features.includes('e2e') ? `### Run E2E tests
+\`\`\`bash
+npx cypress open
+\`\`\`
+` : ''}
+
+## Configuration
+- Angular Version: ${config.version}
+- Styling: ${config.styling}
+- Architecture: ${config.architecture}
+
+## Generated by CodeGen Automator
+This project was automatically generated based on your requirements.
+`;
+    
+    fs.writeFileSync(path.join(projectPath, 'README.md'), readmeContent);
+    
+    // Create Docker files if needed
+    if (config.features.includes('docker')) {
+        createDockerFiles(projectPath, projectName);
+    }
+    
+    console.log(`✅ Angular project created at ${projectPath}`);
+}
+
+function createBasicAngularStructure(projectPath, config) {
+    console.log('Creating basic Angular structure...');
+    
+    // Create directories
+    const dirs = [
+        'src/app',
+        'src/assets',
+        'src/environments'
+    ];
+    
+    dirs.forEach(dir => {
+        fs.mkdirSync(path.join(projectPath, dir), { recursive: true });
+    });
+    
+    // Create basic package.json
+    const packageJson = {
+        name: path.basename(projectPath),
+        version: '0.0.0',
+        scripts: {
+            ng: 'ng',
+            start: 'ng serve',
+            build: 'ng build',
+            test: 'ng test'
+        },
+        dependencies: {
+            '@angular/animations': '^17.0.0',
+            '@angular/common': '^17.0.0',
+            '@angular/compiler': '^17.0.0',
+            '@angular/core': '^17.0.0',
+            '@angular/forms': '^17.0.0',
+            '@angular/platform-browser': '^17.0.0',
+            '@angular/platform-browser-dynamic': '^17.0.0',
+            '@angular/router': '^17.0.0',
+            'rxjs': '~7.8.0',
+            'tslib': '^2.3.0',
+            'zone.js': '~0.14.0'
+        },
+        devDependencies: {
+            '@angular-devkit/build-angular': '^17.0.0',
+            '@angular/cli': '^17.0.0',
+            '@angular/compiler-cli': '^17.0.0',
+            'typescript': '~5.2.0'
+        }
+    };
+    
+    fs.writeFileSync(
+        path.join(projectPath, 'package.json'),
+        JSON.stringify(packageJson, null, 2)
+    );
+    
+    // Create basic app component
+    const appComponentTs = `import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-root',
+  templateUrl: './app.component.html',
+  styleUrls: ['./app.component.css']
+})
+export class AppComponent {
+  title = '${path.basename(projectPath)}';
+}
+`;
+    
+    const appComponentHtml = `<h1>Welcome to {{ title }}!</h1>
+<p>This project was generated by CodeGen Automator</p>
+`;
+    
+    fs.writeFileSync(path.join(projectPath, 'src/app/app.component.ts'), appComponentTs);
+    fs.writeFileSync(path.join(projectPath, 'src/app/app.component.html'), appComponentHtml);
+    fs.writeFileSync(path.join(projectPath, 'src/app/app.component.css'), '');
+}
+
+function createDockerFiles(projectPath, projectName) {
+    const dockerfile = `# Build stage
+FROM node:20-alpine AS build
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+# Production stage
+FROM nginx:alpine
+
+COPY --from=build /app/dist/${projectName} /usr/share/nginx/html
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
+`;
+    
+    const dockerCompose = `version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "4200:80"
+    volumes:
+      - ./dist/${projectName}:/usr/share/nginx/html
+`;
+    
+    fs.writeFileSync(path.join(projectPath, 'Dockerfile'), dockerfile);
+    fs.writeFileSync(path.join(projectPath, 'docker-compose.yml'), dockerCompose);
+}
+
+function main() {
+    if (process.argv.length < 4) {
+        console.error('Usage: generate-angular.js <project_name> <metadata_file>');
+        process.exit(1);
+    }
+    
+    const projectName = process.argv[2];
+    const metadataFile = process.argv[3];
+    
+    // Read metadata
+    const metadata = JSON.parse(fs.readFileSync(metadataFile, 'utf8'));
+    const issueBody = metadata.issue_body;
+    const config = parseIssueBody(issueBody);
+    
+    // Determine output directory
+    const outputDir = path.resolve('generated-projects');
+    if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+    }
+    
+    generateAngularProject(projectName, config, outputDir);
+}
+
+if (require.main === module) {
+    main();
+}

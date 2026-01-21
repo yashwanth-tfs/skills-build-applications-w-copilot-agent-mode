@@ -1,44 +1,51 @@
 {
-    "name": "OctoFit Tracker App codespace",
-    "image": "mcr.microsoft.com/devcontainers/base:jammy",
-    "features": {
-        "ghcr.io/devcontainers/features/docker-in-docker:2": {},
-        "ghcr.io/devcontainers/features/github-cli:1": {},
-        "ghcr.io/devcontainers/features/node:1": {
-        "version": "lts",
-        "pnpmVersion": "latest",
-        "nvmVersion": "latest"
+  "name": "CodeGen Automator Development",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "angular.ng-template",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "GitHub.copilot",
+        "GitHub.copilot-chat"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.linting.enabled": true,
+        "python.linting.pylintEnabled": false,
+        "python.linting.flake8Enabled": true,
+        "python.formatting.provider": "black",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.organizeImports": true
         }
-    },
-    "postCreateCommand": "sudo chmod +x ./.devcontainer/post_create.sh && ./.devcontainer/post_create.sh",
-    "postStartCommand": "sudo chmod +x ./.devcontainer/post_start.sh && ./.devcontainer/post_start.sh",
-    "customizations": {
-        "vscode": {
-        "extensions": [
-            "github.copilot", // GitHub Copilot + Copilot Chat
-            "markdown-lint.markdownlinter",
-            "ms-python.python", // Python extension
-            "ms-python.vscode-pylance", // Pylance extension for Python
-            "ms-python.debugpy" // Debugpy extension for Python
-        ],
-        "settings": {
-            "chat.agent.enabled": true,
-        }
-    }
-    },
-    "forwardPorts": [
-        3000, // React default port
-        8000, // Django default port
-        27017 // MongoDB default port
-    ],
-    "portAttributes": {
-      "3000": { // React port attributes
-      "label": "octofit-tracker",
-      "requireLocalPort": true
-      },
-      "8000": { // Django port attributes
-      "label": "octofit-api",
-      "requireLocalPort": true
       }
     }
+  },
+  "forwardPorts": [3000, 4200, 5000, 8000, 8080],
+  "portsAttributes": {
+    "3000": {
+      "label": "React/Node",
+      "onAutoForward": "notify"
+    },
+    "4200": {
+      "label": "Angular",
+      "onAutoForward": "notify"
+    },
+    "5000": {
+      "label": "Flask",
+      "onAutoForward": "notify"
+    },
+    "8000": {
+      "label": "Django/FastAPI",
+      "onAutoForward": "notify"
+    }
+  },
+  "postCreateCommand": "echo 'CodeGen Automator environment ready!' && gh --version && python --version && node --version && ng version",
+  "remoteUser": "vscode"
 }

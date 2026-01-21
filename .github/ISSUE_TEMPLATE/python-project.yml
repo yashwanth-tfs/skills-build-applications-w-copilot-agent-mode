@@ -1,0 +1,77 @@
+name: 🐍 Python Project
+description: Generate a new Python project with Django/Flask backend
+title: "[PYTHON] "
+labels: ["codegen", "python", "auto-generate"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Generate a Python Project
+        This will automatically create a new Python project in a GitHub Codespace.
+        
+  - type: input
+    id: project_name
+    attributes:
+      label: Project Name
+      description: Name of your Python project (lowercase, hyphen-separated)
+      placeholder: my-python-app
+    validations:
+      required: true
+      
+  - type: dropdown
+    id: framework
+    attributes:
+      label: Framework
+      description: Choose your Python framework
+      options:
+        - Django
+        - Flask
+        - FastAPI
+    validations:
+      required: true
+      
+  - type: dropdown
+    id: database
+    attributes:
+      label: Database
+      description: Choose your database
+      options:
+        - MongoDB
+        - PostgreSQL
+        - SQLite
+        - MySQL
+    validations:
+      required: true
+      
+  - type: checkboxes
+    id: features
+    attributes:
+      label: Additional Features
+      description: Select additional features to include
+      options:
+        - label: User Authentication
+        - label: REST API
+        - label: GraphQL API
+        - label: Celery (Task Queue)
+        - label: Docker Support
+        - label: Unit Tests
+        
+  - type: textarea
+    id: description
+    attributes:
+      label: Project Description
+      description: Brief description of what this project will do
+      placeholder: This project will...
+    validations:
+      required: true
+      
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Confirmation
+      description: By submitting this issue, you confirm that
+      options:
+        - label: I have reviewed the project requirements
+          required: true
+        - label: I understand this will create a new branch and PR
+          required: true

@@ -1,0 +1,92 @@
+name: 🅰️ Angular Project
+description: Generate a new Angular frontend project
+title: "[ANGULAR] "
+labels: ["codegen", "angular", "auto-generate"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Generate an Angular Project
+        This will automatically create a new Angular project in a GitHub Codespace.
+        
+  - type: input
+    id: project_name
+    attributes:
+      label: Project Name
+      description: Name of your Angular project (lowercase, hyphen-separated)
+      placeholder: my-angular-app
+    validations:
+      required: true
+      
+  - type: dropdown
+    id: angular_version
+    attributes:
+      label: Angular Version
+      description: Choose Angular version
+      options:
+        - Angular 17 (Latest)
+        - Angular 16
+        - Angular 15
+    validations:
+      required: true
+      
+  - type: dropdown
+    id: styling
+    attributes:
+      label: Styling Framework
+      description: Choose your CSS framework
+      options:
+        - CSS
+        - SCSS
+        - Tailwind CSS
+        - Angular Material
+        - Bootstrap
+    validations:
+      required: true
+      
+  - type: checkboxes
+    id: features
+    attributes:
+      label: Additional Features
+      description: Select additional features to include
+      options:
+        - label: Routing
+        - label: State Management (NgRx)
+        - label: HTTP Client
+        - label: Forms (Reactive & Template-driven)
+        - label: Authentication Module
+        - label: Unit Tests (Karma/Jasmine)
+        - label: E2E Tests (Cypress)
+        - label: Docker Support
+        - label: PWA Support
+        
+  - type: dropdown
+    id: architecture
+    attributes:
+      label: Project Structure
+      description: Choose your preferred architecture
+      options:
+        - Standalone Components (Recommended)
+        - NgModule-based
+    validations:
+      required: true
+      
+  - type: textarea
+    id: description
+    attributes:
+      label: Project Description
+      description: Brief description of what this project will do
+      placeholder: This project will...
+    validations:
+      required: true
+      
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Confirmation
+      description: By submitting this issue, you confirm that
+      options:
+        - label: I have reviewed the project requirements
+          required: true
+        - label: I understand this will create a new branch and PR
+          required: true
