@@ -1,5 +1,6 @@
-# Generated projects directory
-generated-projects/
+# Generated projects directory - only ignore in main branch
+# The codegen branches SHOULD include generated-projects/
+# generated-projects/
 
 # Metadata (kept in git for workflow)
 # .codegen-metadata/
