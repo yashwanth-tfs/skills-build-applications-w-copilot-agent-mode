@@ -34,12 +34,10 @@ mkdir -p generated-projects
 case $PROJECT_TYPE in
     python)
         echo "Generating Python project..."
-        cd codegen-automator
         python3 scripts/generate-python.py "$PROJECT_NAME" "$METADATA_FILE"
         ;;
     angular)
         echo "Generating Angular project..."
-        cd codegen-automator
         node scripts/generate-angular.js "$PROJECT_NAME" "$METADATA_FILE"
         ;;
     *)

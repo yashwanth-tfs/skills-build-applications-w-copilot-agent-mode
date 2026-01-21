@@ -12,7 +12,6 @@
 
 ### Setup
 ```bash
-cd codegen-automator
 chmod +x scripts/generate-project.sh
 ```
 
