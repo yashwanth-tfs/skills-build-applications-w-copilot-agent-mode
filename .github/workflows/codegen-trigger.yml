@@ -13,15 +13,37 @@ jobs:
   parse-issue:
     name: Parse Issue and Trigger Codespace
     runs-on: ubuntu-latest
-    if: |
-      contains(github.event.issue.labels.*.name, 'python') || 
-      contains(github.event.issue.labels.*.name, 'angular')
     outputs:
       project_type: ${{ steps.parse.outputs.project_type }}
       project_name: ${{ steps.parse.outputs.project_name }}
       issue_number: ${{ github.event.issue.number }}
     
     steps:
+      - name: Debug - Print issue labels
+        run: |
+          echo "Issue labels: ${{ toJSON(github.event.issue.labels) }}"
+          echo "Issue title: ${{ github.event.issue.title }}"
+          echo "Issue number: ${{ github.event.issue.number }}"
+      
+      - name: Check if codegen issue
+        id: check
+        run: |
+          LABELS='${{ toJSON(github.event.issue.labels.*.name) }}'
+          echo "Labels JSON: $LABELS"
+          
+          if echo "$LABELS" | grep -q "python"; then
+            echo "is_codegen=true" >> $GITHUB_OUTPUT
+            echo "Found python label"
+          elif echo "$LABELS" | grep -q "angular"; then
+            echo "is_codegen=true" >> $GITHUB_OUTPUT
+            echo "Found angular label"
+          else
+            echo "is_codegen=false" >> $GITHUB_OUTPUT
+            echo "No codegen labels found"
+            exit 1
+          fi
+          
+
       - name: Checkout repository
         uses: actions/checkout@v4
         
