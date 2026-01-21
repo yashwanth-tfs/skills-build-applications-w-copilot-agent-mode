@@ -151,7 +151,9 @@ jobs:
         with:
           script: |
             const branchName = `codegen/${{ needs.parse-issue.outputs.project_name }}-${{ needs.parse-issue.outputs.issue_number }}`;
-            const codespaceUrl = `https://github.com/${{ github.repository }}/codespaces/new?ref=${branchName}`;
+            const repoUrl = `https://github.com/${{ github.repository }}`;
+            const branchUrl = `${repoUrl}/tree/${branchName}`;
+            const codespaceUrl = `https://codespaces.new/${{ github.repository }}?ref=${branchName}`;
             
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -160,13 +162,18 @@ jobs:
               body: `✅ **Code generation complete!**\n\n` +
                     `📦 Project: \`${{ needs.parse-issue.outputs.project_name }}\`\n` +
                     `🌿 Branch: \`${branchName}\`\n\n` +
-                    `**Next Steps:**\n` +
-                    `1. Open in Codespace: [Launch Codespace](${codespaceUrl})\n` +
-                    `2. Review the generated code\n` +
-                    `3. Make any necessary modifications\n` +
-                    `4. Comment \`/approve\` to create a Pull Request\n` +
-                    `5. Comment \`/reject\` to close this issue\n\n` +
-                    `💡 The Codespace will have all dependencies pre-installed and ready to use.`
+                    `**Next Steps:**\n\n` +
+                    `**Option 1: Open in Codespace (Recommended)**\n` +
+                    `1. Click here: [🚀 Create Codespace](${codespaceUrl})\n` +
+                    `2. Wait for the Codespace to load\n` +
+                    `3. Review the generated code in \`generated-projects/\`\n\n` +
+                    `**Option 2: View in Browser**\n` +
+                    `1. [📂 View Branch](${branchUrl})\n` +
+                    `2. Click the "Code" button → "Codespaces" → "Create codespace on ${branchName}"\n\n` +
+                    `**After Review:**\n` +
+                    `- Comment \`/approve\` to create a Pull Request\n` +
+                    `- Comment \`/reject\` to close this issue\n\n` +
+                    `💡 The Codespace will have all dependencies pre-installed.`
             });
 
   wait-for-approval:
