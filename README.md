@@ -7,9 +7,31 @@ Automatically generate Python and Angular projects in GitHub Codespaces with hum
 ### Code Generation
 - **Template Selection**: Choose from Python (Django/Flask/FastAPI) or Angular project templates via GitHub Issues
 - **Automated Code Generation**: Automatically generates complete project scaffolding (40+ files)
+- **Intelligent Entity Extraction**: FastAPI generator analyzes project descriptions and creates entity-specific endpoints
 - **Komodo UI Integration**: Angular projects include ThermoFisher's Komodo component library
 - **Enterprise Architecture**: Module-based patterns with layered structure (API → Service → Repository)
 - **Reference Image Support**: Automatically detects and uses UI mockups for Angular generation
+
+### Intelligent Code Generation
+
+The FastAPI generator includes smart entity detection that analyzes your project description and automatically creates context-aware endpoints:
+
+**Example:** Instead of generic "Item" CRUD operations, describe your project:
+- *"A blog API with posts, comments, and user management"* → Generates `User`, `Post`, `Comment` endpoints
+- *"E-commerce platform with products, orders, and customers"* → Generates `Product`, `Order`, `Customer` endpoints
+- *"Task management system with projects and categories"* → Generates `Task`, `Project`, `Category` endpoints
+
+**Supported Entities (20+ types):**
+- User, Product, Order, Post, Comment, Task, Project
+- Customer, Invoice, Payment, Booking, Event, Category
+- Message, Notification, Report, Document, Inventory
+- Employee, Department, and more...
+
+Each detected entity gets complete CRUD endpoints with:
+- Pydantic models (Base, Create, Update, Response)
+- In-memory database with sample data
+- RESTful endpoints: GET, POST, PUT, DELETE
+- Interactive API documentation at `/docs`
 
 ### Repository Management
 - **Separate Repository Creation**: Move generated projects to standalone repositories

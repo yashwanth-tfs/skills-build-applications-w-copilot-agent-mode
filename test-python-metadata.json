@@ -1,7 +1,0 @@
-{
-  "issue_number": 999,
-  "project_type": "python",
-  "project_name": "test-python-api",
-  "branch": "test",
-  "issue_body": "**Project Name:** test-python-api\n\n**Framework:** FastAPI\n\n**Database:** PostgreSQL\n\n**Description:** Test API"
-}

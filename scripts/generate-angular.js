@@ -113,8 +113,96 @@ function parseIssueBody(issueBody) {
     return config;
 }
 
+/**
+ * Extract entities from project description
+ * Similar to Python version but in JavaScript
+ */
+function extractEntitiesFromDescription(description) {
+    const entities = [];
+    
+    // Common entity keywords to look for
+    const entityKeywords = {
+        'user': ['user', 'account', 'profile', 'member'],
+        'product': ['product', 'item', 'goods', 'merchandise'],
+        'order': ['order', 'purchase', 'transaction'],
+        'post': ['post', 'article', 'blog'],
+        'comment': ['comment', 'review', 'feedback'],
+        'task': ['task', 'todo', 'assignment', 'job'],
+        'project': ['project', 'workspace'],
+        'customer': ['customer', 'client'],
+        'invoice': ['invoice', 'bill', 'receipt'],
+        'payment': ['payment', 'transaction'],
+        'booking': ['booking', 'reservation', 'appointment'],
+        'event': ['event', 'meeting', 'conference'],
+        'category': ['category', 'tag', 'label'],
+        'message': ['message', 'chat', 'conversation'],
+        'notification': ['notification', 'alert'],
+        'report': ['report', 'analytics', 'statistics'],
+        'document': ['document', 'file', 'attachment'],
+        'inventory': ['inventory', 'stock', 'warehouse'],
+        'employee': ['employee', 'staff', 'worker'],
+        'department': ['department', 'division', 'team'],
+    };
+    
+    const descriptionLower = description.toLowerCase();
+    
+    // Check for each entity keyword with word boundary matching
+    for (const [entityName, keywords] of Object.entries(entityKeywords)) {
+        for (const keyword of keywords) {
+            let pattern;
+            if (keyword.endsWith('y')) {
+                // For words ending in 'y', match 'categor(y|ies)', 'inventor(y|ies)'
+                const base = keyword.slice(0, -1);  // Remove the 'y'
+                pattern = new RegExp(`\\b${base}(?:y|ies)\\b`, 'i');
+            } else {
+                // Match regular plural 's': 'user' matches 'user' or 'users'
+                pattern = new RegExp(`\\b${keyword}s?\\b`, 'i');
+            }
+            
+            if (pattern.test(descriptionLower)) {
+                if (!entities.includes(entityName)) {
+                    entities.push(entityName);
+                }
+                break;
+            }
+        }
+    }
+    
+    // If no specific entities found, default to 'item'
+    if (entities.length === 0) {
+        entities.push('item');
+    }
+    
+    // Limit to first 3 entities to keep code manageable
+    return entities.slice(0, 3);
+}
+
+/**
+ * Capitalize first letter
+ */
+function capitalize(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+/**
+ * Proper English pluralization
+ */
+function pluralize(entity) {
+    if (entity.endsWith('y')) {
+        return entity.slice(0, -1) + 'ies';
+    } else if (entity.endsWith('s')) {
+        return entity;
+    } else {
+        return entity + 's';
+    }
+}
+
 function generateAngularProject(projectName, config, outputDir, referenceImages) {
     console.log(`Generating Angular project: ${projectName}`);
+    
+    // Extract entities from description
+    config.entities = extractEntitiesFromDescription(config.description || '');
+    
     console.log(`Configuration:`, JSON.stringify(config, null, 2));
     
     if (referenceImages.length > 0) {
@@ -135,7 +223,9 @@ function generateAngularProject(projectName, config, outputDir, referenceImages)
 function createModuleBasedStructure(projectPath, projectName, config, referenceImages) {
     console.log('Creating module-based Angular structure with Komodo components...');
     
-    // Create directory structure
+    const entities = config.entities || ['item'];
+    
+    // Create directory structure including entity-specific features
     const dirs = [
         'src/app/core/services',
         'src/app/core/interfaces',
@@ -150,6 +240,12 @@ function createModuleBasedStructure(projectPath, projectName, config, referenceI
         'src/environments',
         'public'
     ];
+    
+    // Add entity-specific feature directories
+    entities.forEach(entity => {
+        dirs.push(`src/app/features/${pluralize(entity)}/components`);
+        dirs.push(`src/app/features/${pluralize(entity)}/services`);
+    });
     
     dirs.forEach(dir => {
         fs.mkdirSync(path.join(projectPath, dir), { recursive: true });
@@ -858,10 +954,14 @@ ${referenceImages.map(img => `- \`${path.basename(img)}\` (copied to src/assets/
 The UI components were generated using **Komodo Components** to match these reference designs.
 ` : '';
     
+    const entitiesSection = config.entities && config.entities.length > 0 
+        ? `\n## Detected Entities\n\n${config.entities.map(entity => `- **${capitalize(entity)}** - Feature module at \`src/app/features/${pluralize(entity)}/\``).join('\n')}\n`
+        : '';
+    
     const readme = `# ${projectName}
 
 ${config.description || 'Angular application with Komodo UI components'}
-${refSection}
+${refSection}${entitiesSection}
 ## Komodo Components
 
 This project uses **@business-app-systems/komodo-ui** components.
