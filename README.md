@@ -1,11 +1,20 @@
 # CodeGen Automator 🤖
 
-Automatically generate Python and Angular projects in GitHub Codespaces with human approval workflow.
+Automatically generate Python and Angular projects in GitHub Codespaces with human approval workflow. Also supports creating separate repositories and modifying existing projects.
 
 ## 🌟 Features
 
+### Code Generation
 - **Template Selection**: Choose from Python (Django/Flask/FastAPI) or Angular project templates via GitHub Issues
-- **Automated Code Generation**: Automatically generates project scaffolding based on your selections
+- **Automated Code Generation**: Automatically generates complete project scaffolding (40+ files)
+- **Komodo UI Integration**: Angular projects include ThermoFisher's Komodo component library
+- **Enterprise Architecture**: Module-based patterns with layered structure (API → Service → Repository)
+- **Reference Image Support**: Automatically detects and uses UI mockups for Angular generation
+
+### Repository Management
+- **Separate Repository Creation**: Move generated projects to standalone repositories
+- **Cross-Repository Modifications**: Add features to existing projects in different repos
+- **Automated PR Creation**: Changes create pull requests for review
 - **GitHub Codespace Integration**: Opens generated code in a pre-configured Codespace environment
 - **Human Approval Workflow**: Review generated code before creating a Pull Request
 - **Zero Setup**: No local environment needed - everything runs in the cloud
@@ -100,6 +109,47 @@ If approved:
 2. Review the PR and request changes if needed
 3. Merge when ready!
 
+---
+
+## 📦 Working with Generated Projects
+
+### Option 1: Create Separate Repository
+
+After generating a project, you can move it to its own standalone repository:
+
+1. Go to **Issues** → **New Issue** → **"📤 Create Separate Repository"**
+2. Fill in:
+   - **Project Name**: Name from `generated-projects/` folder
+   - **Visibility**: Public or Private
+   - **Organization**: Optional (leave empty for personal account)
+3. Workflow creates new repository and pushes all code
+4. Ready for independent development!
+
+**See:** [SEPARATE_REPOS_GUIDE.md](SEPARATE_REPOS_GUIDE.md) for detailed instructions.
+
+### Option 2: Modify Existing Projects
+
+Add features to existing projects in different repositories:
+
+1. Go to **Issues** → **New Issue** → **"🔧 Modify Existing Project"**
+2. Fill in:
+   - **Target Repository**: `owner/repo-name`
+   - **Project Type**: Python or Angular
+   - **Modification Type**: feature, enhancement, bugfix
+   - **Description**: What to add/change
+3. Workflow creates PR in target repository with changes
+4. Review and merge!
+
+**Supported Modifications:**
+- ✅ Add FastAPI endpoints (route → service → repository)
+- ✅ Add Angular components (module → component → service)
+- ✅ Update dependencies
+- ✅ Add new features
+
+**See:** [SEPARATE_REPOS_GUIDE.md](SEPARATE_REPOS_GUIDE.md) for setup and examples.
+
+---
+
 ## 🔧 Setup (One-Time)
 
 ### Prerequisites
@@ -109,15 +159,7 @@ If approved:
 
 ### Installation
 
-1. **Copy the `codegen-automator` folder** to your repository root:
-   ```
-   your-repo/
-   ├── codegen-automator/
-   │   ├── .github/
-   │   │   ├── ISSUE_TEMPLATE/
-   │   │   └── workflows/
-   │   └── scripts/
-   ```
+1. **Copy the `.github` folder and `scripts` folder** to your repository root
 
 2. **Enable GitHub Actions**:
    - Go to Settings → Actions → General
@@ -128,9 +170,15 @@ If approved:
    - Go to Settings → General → Features
    - Check "Issues"
 
-4. **Commit and Push**:
+4. **Optional: Setup PAT for Cross-Repository Operations**:
+   - For modifying existing projects in other repos
+   - Go to GitHub Settings → Developer settings → Personal access tokens
+   - Generate token with `repo` scope
+   - Add to repository secrets as `PAT_TOKEN`
+
+5. **Commit and Push**:
    ```bash
-   git add codegen-automator
+   git add .github scripts templates
    git commit -m "Add CodeGen Automator"
    git push
    ```
@@ -140,14 +188,33 @@ That's it! The issue templates and workflows are now available.
 ## 📁 Project Structure
 
 ```
-codegen-automator/
-├── .github/
-│   ├── ISSUE_TEMPLATE/
-│   │   ├── config.yml              # Issue template configuration
-│   │   ├── python-project.yml      # Python project template
-│   │   └── angular-project.yml     # Angular project template
-│   └── workflows/
-│       ├── codegen-trigger.yml     # Main workflow to generate code
+.github/
+├── ISSUE_TEMPLATE/
+│   ├── python-project.yml          # Python project template
+│   ├── angular-project.yml         # Angular project template
+│   ├── create-repo.yml             # Create separate repository template
+│   └── modify-existing.yml         # Modify existing project template
+└── workflows/
+    ├── codegen-trigger.yml         # Main code generation workflow
+    ├── handle-approval.yml         # Approval/rejection workflow
+    ├── setup-labels.yml            # Auto-create required labels
+    ├── create-separate-repo.yml    # Create standalone repository
+    └── modify-existing-project.yml # Modify projects in other repos
+
+scripts/
+├── generate-python.py              # Python project generator (1000+ lines)
+├── generate-angular.js             # Angular project generator (1000+ lines)
+├── parse-modification-request.js   # Parse modification requests
+├── modify-python.py                # Apply changes to Python projects
+└── modify-angular.js               # Apply changes to Angular projects
+
+templates/
+├── fastapi-template.md             # FastAPI enterprise architecture guide
+└── angular-template.md             # Angular module-based architecture guide
+
+generated-projects/                  # Generated code stored here
+└── <project-name>/                 # Each project in its own folder
+```
 │       └── handle-approval.yml     # Approval/rejection workflow
 ├── scripts/
 │   ├── generate-project.sh         # Main orchestrator script
@@ -220,9 +287,17 @@ Edit the generator scripts in `scripts/`:
 3. Update `generate-project.sh` with new case
 4. Create generator script (e.g., `generate-react.js`)
 
+## 📚 Documentation
+
+- **[SEPARATE_REPOS_GUIDE.md](SEPARATE_REPOS_GUIDE.md)** - Moving projects to separate repos and modifying existing projects
+- **[ANGULAR_GENERATOR_UPDATE.md](ANGULAR_GENERATOR_UPDATE.md)** - Angular generator with Komodo components
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Project architecture and design patterns
+- **[TESTING.md](TESTING.md)** - Testing strategies and best practices
+
 ## 🔐 Security
 
-- Uses GitHub Actions built-in tokens (no manual secrets needed)
+- Uses GitHub Actions built-in tokens (no manual secrets needed for generation)
+- Optional PAT required for cross-repository operations
 - All generated code is reviewed before merging
 - Branches are automatically deleted on rejection
 - Follows least-privilege principle
@@ -231,8 +306,9 @@ Edit the generator scripts in `scripts/`:
 
 ### Issue: Workflow doesn't trigger
 - Check that GitHub Actions are enabled
-- Verify issue has `auto-generate` label
+- Verify issue has the correct label (`python`, `angular`, etc.)
 - Check Actions tab for errors
+- Ensure labels exist (run setup-labels workflow)
 
 ### Issue: Codespace won't open
 - Verify Codespaces are enabled in your organization
@@ -244,12 +320,32 @@ Edit the generator scripts in `scripts/`:
 - Verify all required fields in issue template are filled
 - Ensure project name is valid (lowercase, hyphen-separated)
 
+### Issue: Can't modify existing repository
+- Verify PAT is configured with `repo` scope
+- Check PAT is added to repository secrets as `PAT_TOKEN`
+- Ensure you have access to target repository
+- Verify repository name format: `owner/repo`
+
 ## 📝 Commands Reference
 
 | Command | Description |
 |---------|-------------|
 | `/approve` | Create PR with generated code |
 | `/reject` | Delete branch and close issue |
+
+## 🎯 Use Cases
+
+### Use Case 1: New Project Generation
+Create a complete FastAPI or Angular project from scratch:
+- Issue → Generate Code → Review in Codespace → Approve → Merge
+
+### Use Case 2: Separate Repository
+Move generated project to its own repo for production:
+- Generate Project → Create Separate Repo Issue → New Standalone Repository
+
+### Use Case 3: Modify Existing Project
+Add features to existing projects in different repositories:
+- Modify Existing Issue → Specify Target Repo → PR Created in Target Repo
 
 ## 🤝 Contributing
 

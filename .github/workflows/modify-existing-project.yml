@@ -1,0 +1,150 @@
+name: Modify Existing Project
+
+on:
+  issues:
+    types: [opened, labeled]
+
+jobs:
+  check-modification-request:
+    runs-on: ubuntu-latest
+    if: contains(github.event.issue.labels.*.name, 'modify-existing')
+    outputs:
+      target_repo: ${{ steps.parse.outputs.target_repo }}
+      modification_type: ${{ steps.parse.outputs.modification_type }}
+      
+    steps:
+      - name: Parse issue body
+        id: parse
+        run: |
+          ISSUE_BODY=$(cat << 'EOF'
+          ${{ github.event.issue.body }}
+          EOF
+          )
+          
+          # Extract target repository
+          TARGET_REPO=$(echo "$ISSUE_BODY" | grep -A1 "Target Repository" | tail -1 | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+          echo "target_repo=$TARGET_REPO" >> $GITHUB_OUTPUT
+          
+          # Extract modification type (feature, bugfix, enhancement)
+          MOD_TYPE=$(echo "$ISSUE_BODY" | grep -A1 "Modification Type" | tail -1 | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+          echo "modification_type=$MOD_TYPE" >> $GITHUB_OUTPUT
+          
+          echo "Target Repository: $TARGET_REPO"
+          echo "Modification Type: $MOD_TYPE"
+      
+      - name: Comment on issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🔄 Starting modification process for repository: **${{ steps.parse.outputs.target_repo }}**\n\nModification Type: **${{ steps.parse.outputs.modification_type }}**\n\nI'll create a branch and PR in the target repository.`
+            })
+  
+  modify-project:
+    needs: check-modification-request
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout target repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ needs.check-modification-request.outputs.target_repo }}
+          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          path: target-repo
+      
+      - name: Checkout codegen templates
+        uses: actions/checkout@v4
+        with:
+          path: codegen-automator
+      
+      - name: Parse modification details
+        id: parse_details
+        working-directory: codegen-automator
+        run: |
+          # Save issue body to file for parsing
+          cat > /tmp/issue_metadata.json << 'EOF'
+          {
+            "issue_number": "${{ github.event.issue.number }}",
+            "issue_body": ${{ toJSON(github.event.issue.body) }}
+          }
+          EOF
+          
+          # Parse the modification request
+          node scripts/parse-modification-request.js /tmp/issue_metadata.json > /tmp/modifications.json
+          cat /tmp/modifications.json
+      
+      - name: Create modification branch
+        working-directory: target-repo
+        run: |
+          BRANCH_NAME="codegen/modify-${{ github.event.issue.number }}"
+          git checkout -b "$BRANCH_NAME"
+          echo "branch_name=$BRANCH_NAME" >> $GITHUB_OUTPUT
+        id: branch
+      
+      - name: Apply modifications
+        working-directory: target-repo
+        run: |
+          # Detect project type
+          if [ -f "package.json" ]; then
+            PROJECT_TYPE="angular"
+          elif [ -f "requirements.txt" ] || [ -f "pyproject.toml" ]; then
+            PROJECT_TYPE="python"
+          else
+            echo "❌ Unable to detect project type"
+            exit 1
+          fi
+          
+          echo "Detected project type: $PROJECT_TYPE"
+          
+          # Apply modifications based on type
+          if [ "$PROJECT_TYPE" = "angular" ]; then
+            node ../codegen-automator/scripts/modify-angular.js /tmp/modifications.json
+          elif [ "$PROJECT_TYPE" = "python" ]; then
+            python3 ../codegen-automator/scripts/modify-python.py /tmp/modifications.json
+          fi
+      
+      - name: Commit changes
+        working-directory: target-repo
+        run: |
+          git config user.name "CodeGen Automator"
+          git config user.email "codegen@github-actions"
+          git add .
+          git commit -m "feat: Apply modifications from issue #${{ github.event.issue.number }}" || echo "No changes to commit"
+      
+      - name: Push changes
+        working-directory: target-repo
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          git push -u origin "${{ steps.branch.outputs.branch_name }}"
+      
+      - name: Create Pull Request in target repository
+        working-directory: target-repo
+        env:
+          GH_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          TARGET_REPO="${{ needs.check-modification-request.outputs.target_repo }}"
+          
+          gh pr create \
+            --title "CodeGen: Modifications from issue #${{ github.event.issue.number }}" \
+            --body "This PR applies modifications requested in [issue #${{ github.event.issue.number }}](${{ github.event.issue.html_url }}) from the CodeGen Automator.\n\nModification Type: **${{ needs.check-modification-request.outputs.modification_type }}**\n\n⚠️ Please review the changes carefully before merging." \
+            --base main \
+            --head "${{ steps.branch.outputs.branch_name }}"
+          
+          PR_URL=$(gh pr view "${{ steps.branch.outputs.branch_name }}" --json url -q .url)
+          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+        id: create_pr
+      
+      - name: Comment on original issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `✅ Modifications applied successfully!\n\n🔗 Pull Request created: ${{ steps.create_pr.outputs.pr_url }}\n\nPlease review and merge the PR in the target repository.`
+            })

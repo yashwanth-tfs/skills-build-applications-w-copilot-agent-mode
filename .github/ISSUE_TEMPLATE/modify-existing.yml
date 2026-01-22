@@ -1,0 +1,105 @@
+name: 🔧 Modify Existing Project
+description: Add changes to an existing project in a different repository
+title: "[MODIFY] Add <feature> to <repository>"
+labels: ["modify-existing"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Modify Existing Project
+        
+        Use this template to add new features or modifications to an existing project in a different repository.
+        This will create a PR in the target repository with the requested changes.
+        
+        ⚠️ **Requirements:**
+        - Target repository must be accessible with your GitHub token
+        - For private repos, you may need to configure a Personal Access Token (PAT)
+  
+  - type: input
+    id: target_repo
+    attributes:
+      label: Target Repository
+      description: Full repository name (owner/repo)
+      placeholder: username/my-existing-project
+    validations:
+      required: true
+  
+  - type: dropdown
+    id: project_type
+    attributes:
+      label: Project Type
+      description: What type of project is this?
+      options:
+        - Python (Django)
+        - Python (Flask)
+        - Python (FastAPI)
+        - Angular
+    validations:
+      required: true
+  
+  - type: dropdown
+    id: modification_type
+    attributes:
+      label: Modification Type
+      description: What kind of change are you making?
+      options:
+        - feature
+        - enhancement
+        - bugfix
+        - refactor
+    validations:
+      required: true
+  
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe the modifications you want to make
+      placeholder: |
+        Add a new user authentication module with:
+        - Login/logout endpoints
+        - JWT token generation
+        - Password hashing
+    validations:
+      required: true
+  
+  - type: textarea
+    id: files_to_modify
+    attributes:
+      label: Files to Modify/Create
+      description: List the files that should be modified or created
+      placeholder: |
+        Create:
+        - app/api/auth.py
+        - app/models/user.py
+        - tests/test_auth.py
+        
+        Modify:
+        - app/main.py (add auth routes)
+        - requirements.txt (add dependencies)
+    validations:
+      required: false
+  
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: New Dependencies
+      description: List any new packages/modules needed
+      placeholder: |
+        Python:
+        - PyJWT==2.8.0
+        - bcrypt==4.1.2
+        
+        Angular:
+        - @angular/material
+    validations:
+      required: false
+  
+  - type: input
+    id: base_branch
+    attributes:
+      label: Base Branch
+      description: Branch to create PR against (default is main)
+      placeholder: main
+    validations:
+      required: false

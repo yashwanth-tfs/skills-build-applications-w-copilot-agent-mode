@@ -1,13 +1,53 @@
 #!/usr/bin/env node
 
 /**
- * Angular Project Generator
- * Generates an Angular project based on issue metadata
+ * Angular Project Generator with Komodo Components
+ * Generates an Angular project based on issue metadata and reference images
  */
 
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+
+/**
+ * Check for reference images in the project directory
+ */
+function findReferenceImages(projectDir) {
+    const imageExtensions = ['.png', '.jpg', '.jpeg', '.svg', '.gif'];
+    const commonNames = ['ui', 'design', 'mockup', 'screenshot', 'reference', 'wireframe', 
+                        'layout', 'home', 'dashboard', 'landing'];
+    const referenceImages = [];
+    
+    try {
+        // Check root directory
+        if (fs.existsSync(projectDir)) {
+            const files = fs.readdirSync(projectDir);
+            files.forEach(file => {
+                const ext = path.extname(file).toLowerCase();
+                const basename = path.basename(file, ext).toLowerCase();
+                if (imageExtensions.includes(ext) && commonNames.some(name => basename.includes(name))) {
+                    referenceImages.push(path.join(projectDir, file));
+                }
+            });
+        }
+        
+        // Check images subdirectory
+        const imagesDir = path.join(projectDir, 'images');
+        if (fs.existsSync(imagesDir)) {
+            const imageFiles = fs.readdirSync(imagesDir);
+            imageFiles.forEach(file => {
+                const ext = path.extname(file).toLowerCase();
+                if (imageExtensions.includes(ext)) {
+                    referenceImages.push(path.join(imagesDir, file));
+                }
+            });
+        }
+    } catch (error) {
+        console.warn('Warning: Could not scan for reference images:', error.message);
+    }
+    
+    return referenceImages;
+}
 
 function parseIssueBody(issueBody) {
     const config = {
@@ -73,181 +113,100 @@ function parseIssueBody(issueBody) {
     return config;
 }
 
-function generateAngularProject(projectName, config, outputDir) {
+function generateAngularProject(projectName, config, outputDir, referenceImages) {
     console.log(`Generating Angular project: ${projectName}`);
     console.log(`Configuration:`, JSON.stringify(config, null, 2));
     
+    if (referenceImages.length > 0) {
+        console.log(`\n📸 Found ${referenceImages.length} reference image(s):`);
+        referenceImages.forEach(img => console.log(`   - ${path.basename(img)}`));
+        console.log('   UI will be generated to match these references using Komodo components\n');
+    }
+    
     const projectPath = path.join(outputDir, projectName);
     
-    // Determine Angular CLI options
-    let cliOptions = [
-        '--skip-git',
-        '--directory', projectName
-    ];
-    
-    // Styling
-    if (config.styling.toLowerCase().includes('scss')) {
-        cliOptions.push('--style=scss');
-    } else if (config.styling.toLowerCase().includes('css')) {
-        cliOptions.push('--style=css');
-    }
-    
-    // Routing
-    if (config.features.includes('routing')) {
-        cliOptions.push('--routing=true');
-    }
-    
-    // Standalone components
-    if (config.architecture.includes('Standalone')) {
-        cliOptions.push('--standalone=true');
-    }
-    
-    // Create Angular project
-    try {
-        console.log(`Running: ng new ${cliOptions.join(' ')}`);
-        execSync(`cd ${outputDir} && ng new ${cliOptions.join(' ')}`, { 
-            stdio: 'inherit',
-            shell: '/bin/bash'
-        });
-    } catch (error) {
-        console.error('Error creating Angular project:', error.message);
-        // Create basic structure manually if ng new fails
-        createBasicAngularStructure(projectPath, config);
-    }
-    
-    // Add additional packages based on features
-    const packages = [];
-    
-    if (config.styling.toLowerCase().includes('tailwind')) {
-        packages.push('tailwindcss', 'postcss', 'autoprefixer');
-    } else if (config.styling.toLowerCase().includes('material')) {
-        packages.push('@angular/material', '@angular/cdk');
-    } else if (config.styling.toLowerCase().includes('bootstrap')) {
-        packages.push('bootstrap');
-    }
-    
-    if (config.features.includes('ngrx')) {
-        packages.push('@ngrx/store', '@ngrx/effects', '@ngrx/store-devtools');
-    }
-    
-    if (config.features.includes('e2e')) {
-        packages.push('cypress', '--save-dev');
-    }
-    
-    // Create package.json additions file
-    if (packages.length > 0) {
-        const packageJsonPath = path.join(projectPath, 'additional-packages.txt');
-        fs.writeFileSync(packageJsonPath, 
-            `# Install these additional packages:\nnpm install ${packages.join(' ')}\n`
-        );
-    }
-    
-    // Create README
-    const readmeContent = `# ${projectName}
-
-${config.description || 'Angular application generated by CodeGen Automator'}
-
-## Features
-${config.features.map(f => `- ${f}`).join('\n')}
-
-## Setup
-
-### Install dependencies
-\`\`\`bash
-npm install
-\`\`\`
-
-${packages.length > 0 ? `### Install additional packages
-\`\`\`bash
-npm install ${packages.join(' ')}
-\`\`\`
-` : ''}
-
-### Development server
-\`\`\`bash
-ng serve
-\`\`\`
-
-Navigate to \`http://localhost:4200/\`
-
-### Build
-\`\`\`bash
-ng build
-\`\`\`
-
-${config.features.includes('tests') ? `### Run tests
-\`\`\`bash
-ng test
-\`\`\`
-` : ''}
-
-${config.features.includes('e2e') ? `### Run E2E tests
-\`\`\`bash
-npx cypress open
-\`\`\`
-` : ''}
-
-## Configuration
-- Angular Version: ${config.version}
-- Styling: ${config.styling}
-- Architecture: ${config.architecture}
-
-## Generated by CodeGen Automator
-This project was automatically generated based on your requirements.
-`;
-    
-    fs.writeFileSync(path.join(projectPath, 'README.md'), readmeContent);
-    
-    // Create Docker files if needed
-    if (config.features.includes('docker')) {
-        createDockerFiles(projectPath, projectName);
-    }
+    // Create basic module-based structure (not standalone)
+    console.log('Creating module-based Angular project structure...');
+    createModuleBasedStructure(projectPath, projectName, config, referenceImages);
     
     console.log(`✅ Angular project created at ${projectPath}`);
 }
 
-function createBasicAngularStructure(projectPath, config) {
-    console.log('Creating basic Angular structure...');
+function createModuleBasedStructure(projectPath, projectName, config, referenceImages) {
+    console.log('Creating module-based Angular structure with Komodo components...');
     
-    // Create directories
+    // Create directory structure
     const dirs = [
-        'src/app',
-        'src/assets',
-        'src/environments'
+        'src/app/core/services',
+        'src/app/core/interfaces',
+        'src/app/shared/components',
+        'src/app/shared/directives',
+        'src/app/shared/pipes',
+        'src/app/layout/header',
+        'src/app/layout/footer',
+        'src/app/layout/sidebar',
+        'src/app/features/home/components',
+        'src/assets/images',
+        'src/environments',
+        'public'
     ];
     
     dirs.forEach(dir => {
         fs.mkdirSync(path.join(projectPath, dir), { recursive: true });
     });
     
-    // Create basic package.json
+    // Copy reference images to assets if they exist
+    if (referenceImages.length > 0) {
+        const assetsImagesDir = path.join(projectPath, 'src/assets/images');
+        referenceImages.forEach(imgPath => {
+            const destPath = path.join(assetsImagesDir, path.basename(imgPath));
+            try {
+                fs.copyFileSync(imgPath, destPath);
+                console.log(`   ✓ Copied reference image: ${path.basename(imgPath)}`);
+            } catch (error) {
+                console.warn(`   ⚠ Could not copy ${path.basename(imgPath)}: ${error.message}`);
+            }
+        });
+    }
+    
+    // Create package.json with Komodo components
     const packageJson = {
-        name: path.basename(projectPath),
-        version: '0.0.0',
+        name: projectName,
+        version: '0.0.1',
         scripts: {
             ng: 'ng',
             start: 'ng serve',
             build: 'ng build',
-            test: 'ng test'
+            watch: 'ng build --watch --configuration development',
+            test: 'ng test',
+            'build:prod': 'ng build --configuration production'
         },
         dependencies: {
-            '@angular/animations': '^17.0.0',
-            '@angular/common': '^17.0.0',
-            '@angular/compiler': '^17.0.0',
-            '@angular/core': '^17.0.0',
-            '@angular/forms': '^17.0.0',
-            '@angular/platform-browser': '^17.0.0',
-            '@angular/platform-browser-dynamic': '^17.0.0',
-            '@angular/router': '^17.0.0',
+            '@angular/animations': '^18.0.0',
+            '@angular/common': '^18.0.0',
+            '@angular/compiler': '^18.0.0',
+            '@angular/core': '^18.0.0',
+            '@angular/forms': '^18.0.0',
+            '@angular/platform-browser': '^18.0.0',
+            '@angular/platform-browser-dynamic': '^18.0.0',
+            '@angular/router': '^18.0.0',
+            '@business-app-systems/komodo-ui': 'latest',
             'rxjs': '~7.8.0',
             'tslib': '^2.3.0',
             'zone.js': '~0.14.0'
         },
         devDependencies: {
-            '@angular-devkit/build-angular': '^17.0.0',
-            '@angular/cli': '^17.0.0',
-            '@angular/compiler-cli': '^17.0.0',
-            'typescript': '~5.2.0'
+            '@angular-devkit/build-angular': '^18.0.0',
+            '@angular/cli': '^18.0.0',
+            '@angular/compiler-cli': '^18.0.0',
+            '@types/jasmine': '~5.1.0',
+            'jasmine-core': '~5.1.0',
+            'karma': '~6.4.0',
+            'karma-chrome-launcher': '~3.2.0',
+            'karma-coverage': '~2.2.0',
+            'karma-jasmine': '~5.1.0',
+            'karma-jasmine-html-reporter': '~2.1.0',
+            'typescript': '~5.4.0'
         }
     };
     
@@ -256,26 +215,793 @@ function createBasicAngularStructure(projectPath, config) {
         JSON.stringify(packageJson, null, 2)
     );
     
-    // Create basic app component
+    // Create angular.json with module-based configuration
+    createAngularJson(projectPath, projectName);
+    
+    // Create tsconfig files
+    createTsConfigs(projectPath);
+    
+    // Create app module structure (module-based, NOT standalone)
+    createAppModule(projectPath, projectName, referenceImages);
+    
+    // Create core module
+    createCoreModule(projectPath);
+    
+    // Create shared module with Komodo components
+    createSharedModule(projectPath);
+    
+    // Create layout module
+    createLayoutModule(projectPath, referenceImages);
+    
+    // Create home feature module
+    createHomeModule(projectPath, projectName, config, referenceImages);
+    
+    // Create environment files
+    createEnvironments(projectPath);
+    
+    // Create main.ts
+    createMainTs(projectPath);
+    
+    // Create styles with Komodo theme
+    createStyles(projectPath, referenceImages);
+    
+    // Create README with Komodo documentation
+    createReadme(projectPath, projectName, config, referenceImages);
+    
+    // Create .gitignore and .editorconfig
+    createConfigFiles(projectPath);
+    
+    // Create Docker files for containerization
+    createDockerFiles(projectPath, projectName);
+    
+    console.log('\n✅ Module-based Angular project with Komodo components created successfully!');
+    console.log(`\n📦 Next steps:`);
+    console.log(`   cd generated-projects/${projectName}`);
+    console.log(`   npm install`);
+    console.log(`   npm start`);
+    if (referenceImages.length > 0) {
+        console.log(`\n📸 Reference images copied to src/assets/images/`);
+        console.log(`   UI components generated to match the reference design using Komodo components`);
+    }
+}
+
+function createAngularJson(projectPath, projectName) {
+    const angularJson = {
+        "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+        "version": 1,
+        "newProjectRoot": "projects",
+        "projects": {
+            [projectName]: {
+                "projectType": "application",
+                "schematics": {
+                    "@schematics/angular:component": {
+                        "style": "scss",
+                        "standalone": false
+                    },
+                    "@schematics/angular:directive": {
+                        "standalone": false
+                    },
+                    "@schematics/angular:pipe": {
+                        "standalone": false
+                    }
+                },
+                "root": "",
+                "sourceRoot": "src",
+                "prefix": "app",
+                "architect": {
+                    "build": {
+                        "builder": "@angular-devkit/build-angular:application",
+                        "options": {
+                            "outputPath": `dist/${projectName}`,
+                            "index": "src/index.html",
+                            "browser": "src/main.ts",
+                            "polyfills": ["zone.js"],
+                            "tsConfig": "tsconfig.app.json",
+                            "inlineStyleLanguage": "scss",
+                            "assets": [{"glob": "**/*", "input": "public"}],
+                            "styles": ["src/styles.scss"],
+                            "scripts": []
+                        },
+                        "configurations": {
+                            "production": {
+                                "budgets": [
+                                    {"type": "initial", "maximumWarning": "2mb", "maximumError": "5mb"},
+                                    {"type": "anyComponentStyle", "maximumWarning": "6kb", "maximumError": "10kb"}
+                                ],
+                                "outputHashing": "all"
+                            },
+                            "development": {
+                                "optimization": false,
+                                "extractLicenses": false,
+                                "sourceMap": true
+                            }
+                        },
+                        "defaultConfiguration": "production"
+                    },
+                    "serve": {
+                        "builder": "@angular-devkit/build-angular:dev-server",
+                        "configurations": {
+                            "production": {"buildTarget": `${projectName}:build:production`},
+                            "development": {"buildTarget": `${projectName}:build:development`}
+                        },
+                        "defaultConfiguration": "development"
+                    },
+                    "test": {
+                        "builder": "@angular-devkit/build-angular:karma",
+                        "options": {
+                            "polyfills": ["zone.js", "zone.js/testing"],
+                            "tsConfig": "tsconfig.spec.json",
+                            "assets": [{"glob": "**/*", "input": "public"}],
+                            "styles": ["src/styles.scss"],
+                            "scripts": []
+                        }
+                    }
+                }
+            }
+        }
+    };
+    
+    fs.writeFileSync(path.join(projectPath, 'angular.json'), JSON.stringify(angularJson, null, 2));
+}
+
+function createTsConfigs(projectPath) {
+    const tsconfig = {
+        "compileOnSave": false,
+        "compilerOptions": {
+            "outDir": "./dist/out-tsc",
+            "strict": true,
+            "noImplicitOverride": true,
+            "noPropertyAccessFromIndexSignature": true,
+            "noImplicitReturns": true,
+            "noFallthroughCasesInSwitch": true,
+            "skipLibCheck": true,
+            "isolatedModules": true,
+            "esModuleInterop": true,
+            "sourceMap": true,
+            "declaration": false,
+            "experimentalDecorators": true,
+            "moduleResolution": "bundler",
+            "importHelpers": true,
+            "target": "ES2022",
+            "module": "ES2022",
+            "lib": ["ES2022", "dom"]
+        }
+    };
+    
+    const tsconfigApp = {
+        "extends": "./tsconfig.json",
+        "compilerOptions": {
+            "outDir": "./out-tsc/app",
+            "types": []
+        },
+        "files": ["src/main.ts"],
+        "include": ["src/**/*.d.ts"]
+    };
+    
+    const tsconfigSpec = {
+        "extends": "./tsconfig.json",
+        "compilerOptions": {
+            "outDir": "./out-tsc/spec",
+            "types": ["jasmine"]
+        },
+        "include": ["src/**/*.spec.ts", "src/**/*.d.ts"]
+    };
+    
+    fs.writeFileSync(path.join(projectPath, 'tsconfig.json'), JSON.stringify(tsconfig, null, 2));
+    fs.writeFileSync(path.join(projectPath, 'tsconfig.app.json'), JSON.stringify(tsconfigApp, null, 2));
+    fs.writeFileSync(path.join(projectPath, 'tsconfig.spec.json'), JSON.stringify(tsconfigSpec, null, 2));
+}
+
+function createAppModule(projectPath, projectName, referenceImages) {
+    const appModuleTs = `import { NgModule, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { BrowserModule } from '@angular/platform-browser';
+import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';
+
+import { AppRoutingModule } from './app-routing.module';
+import { AppComponent } from './app.component';
+import { CoreModule } from './core/core.module';
+import { SharedModule } from './shared/shared.module';
+import { LayoutModule } from './layout/layout.module';
+
+@NgModule({
+  declarations: [AppComponent],
+  imports: [
+    BrowserModule,
+    BrowserAnimationsModule,
+    AppRoutingModule,
+    CoreModule,
+    SharedModule,
+    LayoutModule
+  ],
+  providers: [provideHttpClient(withInterceptorsFromDi())],
+  bootstrap: [AppComponent],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA]
+})
+export class AppModule { }
+`;
+    
     const appComponentTs = `import { Component } from '@angular/core';
 
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
-  styleUrls: ['./app.component.css']
+  styleUrls: ['./app.component.scss'],
+  standalone: false
 })
 export class AppComponent {
-  title = '${path.basename(projectPath)}';
+  title = '${projectName}';
 }
 `;
     
-    const appComponentHtml = `<h1>Welcome to {{ title }}!</h1>
-<p>This project was generated by CodeGen Automator</p>
+    const appComponentHtml = `<app-layout>
+  <router-outlet></router-outlet>
+</app-layout>
 `;
     
+    const appComponentScss = `// App component styles
+`;
+    
+    const appRoutingModule = `import { NgModule } from '@angular/core';
+import { RouterModule, Routes } from '@angular/router';
+
+const routes: Routes = [
+  {
+    path: '',
+    redirectTo: '/home',
+    pathMatch: 'full'
+  },
+  {
+    path: 'home',
+    loadChildren: () => import('./features/home/home.module').then(m => m.HomeModule)
+  }
+];
+
+@NgModule({
+  imports: [RouterModule.forRoot(routes)],
+  exports: [RouterModule]
+})
+export class AppRoutingModule { }
+`;
+    
+    fs.writeFileSync(path.join(projectPath, 'src/app/app.module.ts'), appModuleTs);
     fs.writeFileSync(path.join(projectPath, 'src/app/app.component.ts'), appComponentTs);
     fs.writeFileSync(path.join(projectPath, 'src/app/app.component.html'), appComponentHtml);
-    fs.writeFileSync(path.join(projectPath, 'src/app/app.component.css'), '');
+    fs.writeFileSync(path.join(projectPath, 'src/app/app.component.scss'), appComponentScss);
+    fs.writeFileSync(path.join(projectPath, 'src/app/app-routing.module.ts'), appRoutingModule);
+}
+
+function createCoreModule(projectPath) {
+    const coreModule = `import { NgModule, Optional, SkipSelf } from '@angular/core';
+import { CommonModule } from '@angular/common';
+
+@NgModule({
+  declarations: [],
+  imports: [CommonModule],
+  providers: []
+})
+export class CoreModule {
+  constructor(@Optional() @SkipSelf() parentModule: CoreModule) {
+    if (parentModule) {
+      throw new Error('CoreModule is already loaded. Import it in AppModule only.');
+    }
+  }
+}
+`;
+    
+    fs.writeFileSync(path.join(projectPath, 'src/app/core/core.module.ts'), coreModule);
+}
+
+function createSharedModule(projectPath) {
+    const sharedModule = `import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule, ReactiveFormsModule } from '@angular/forms';
+
+// Import Komodo components as needed
+// Example: import { KomodoButtonModule } from '@business-app-systems/komodo-ui';
+
+@NgModule({
+  declarations: [],
+  imports: [
+    CommonModule,
+    FormsModule,
+    ReactiveFormsModule
+    // Add Komodo modules here
+  ],
+  exports: [
+    CommonModule,
+    FormsModule,
+    ReactiveFormsModule
+    // Export Komodo modules here
+  ]
+})
+export class SharedModule { }
+`;
+    
+    fs.writeFileSync(path.join(projectPath, 'src/app/shared/shared.module.ts'), sharedModule);
+}
+
+function createLayoutModule(projectPath, referenceImages) {
+    const hasReferenceImages = referenceImages.length > 0;
+    const refImageComment = hasReferenceImages ? 
+        `\n  // Layout designed to match reference images in src/assets/images/\n  // Using Komodo components for consistent UI` : '';
+    
+    const layoutModule = `import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
+import { SharedModule } from '../shared/shared.module';
+
+import { LayoutComponent } from './layout.component';
+import { HeaderComponent } from './header/header.component';
+import { FooterComponent } from './footer/footer.component';
+
+@NgModule({
+  declarations: [
+    LayoutComponent,
+    HeaderComponent,
+    FooterComponent
+  ],
+  imports: [
+    CommonModule,
+    RouterModule,
+    SharedModule
+  ],
+  exports: [LayoutComponent]
+})
+export class LayoutModule { }
+`;
+    
+    const layoutComponentTs = `import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-layout',
+  templateUrl: './layout.component.html',
+  styleUrls: ['./layout.component.scss'],
+  standalone: false${refImageComment}
+})
+export class LayoutComponent { }
+`;
+    
+    const layoutComponentHtml = `<div class="app-layout">
+  <app-header></app-header>
+  <main class="main-content">
+    <ng-content></ng-content>
+  </main>
+  <app-footer></app-footer>
+</div>
+`;
+    
+    const layoutComponentScss = `/* Layout matching reference design */
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  padding: 20px;
+}
+`;
+    
+    const headerComponent = `import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-header',
+  templateUrl: './header.component.html',
+  styleUrls: ['./header.component.scss'],
+  standalone: false
+})
+export class HeaderComponent {
+  // Using Komodo navigation components
+}
+`;
+    
+    const headerHtml = `<!-- Header using Komodo components -->
+<header class="app-header">
+  <nav>
+    <h1>Application Header</h1>
+    <!-- Add Komodo navigation components here -->
+    <!-- Example: <komodo-nav-bar [items]="navItems"></komodo-nav-bar> -->
+  </nav>
+</header>
+`;
+    
+    const headerScss = `/* Header styles matching reference */
+.app-header {
+  background-color: #1976d2;
+  color: white;
+  padding: 16px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+`;
+    
+    const footerComponent = `import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-footer',
+  templateUrl: './footer.component.html',
+  styleUrls: ['./footer.component.scss'],
+  standalone: false
+})
+export class FooterComponent { }
+`;
+    
+    const footerHtml = `<footer class="app-footer">
+  <p>&copy; 2026 Generated by CodeGen Automator</p>
+</footer>
+`;
+    
+    const footerScss = `.app-footer {
+  background-color: #f5f5f5;
+  padding: 16px;
+  text-align: center;
+  border-top: 1px solid #ddd;
+}
+`;
+    
+    fs.mkdirSync(path.join(projectPath, 'src/app/layout'), {recursive: true});
+    fs.writeFileSync(path.join(projectPath, 'src/app/layout/layout.module.ts'), layoutModule);
+    fs.writeFileSync(path.join(projectPath, 'src/app/layout/layout.component.ts'), layoutComponentTs);
+    fs.writeFileSync(path.join(projectPath, 'src/app/layout/layout.component.html'), layoutComponentHtml);
+    fs.writeFileSync(path.join(projectPath, 'src/app/layout/layout.component.scss'), layoutComponentScss);
+    
+    fs.mkdirSync(path.join(projectPath, 'src/app/layout/header'), {recursive: true});
+    fs.writeFileSync(path.join(projectPath, 'src/app/layout/header/header.component.ts'), headerComponent);
+    fs.writeFileSync(path.join(projectPath, 'src/app/layout/header/header.component.html'), headerHtml);
+    fs.writeFileSync(path.join(projectPath, 'src/app/layout/header/header.component.scss'), headerScss);
+    
+    fs.mkdirSync(path.join(projectPath, 'src/app/layout/footer'), {recursive: true});
+    fs.writeFileSync(path.join(projectPath, 'src/app/layout/footer/footer.component.ts'), footerComponent);
+    fs.writeFileSync(path.join(projectPath, 'src/app/layout/footer/footer.component.html'), footerHtml);
+    fs.writeFileSync(path.join(projectPath, 'src/app/layout/footer/footer.component.scss'), footerScss);
+}
+
+function createHomeModule(projectPath, projectName, config, referenceImages) {
+    const hasReferenceImages = referenceImages.length > 0;
+    const refComment = hasReferenceImages ? 
+        `\n  // UI designed to match reference images using Komodo components\n  // See src/assets/images/ for design references` : '';
+    
+    const homeModule = `import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterModule, Routes } from '@angular/router';
+import { SharedModule } from '../../shared/shared.module';
+
+import { HomeComponent } from './components/home/home.component';
+
+const routes: Routes = [
+  { path: '', component: HomeComponent }
+];
+
+@NgModule({
+  declarations: [HomeComponent],
+  imports: [
+    CommonModule,
+    SharedModule,
+    RouterModule.forChild(routes)
+  ]
+})
+export class HomeModule { }
+`;
+    
+    const homeComponent = `import { Component, OnInit } from '@angular/core';
+
+@Component({
+  selector: 'app-home',
+  templateUrl: './home.component.html',
+  styleUrls: ['./home.component.scss'],
+  standalone: false${refComment}
+})
+export class HomeComponent implements OnInit {
+  title = '${projectName}';
+  description = '${config.description || 'Welcome to your Angular application'}';
+  ${hasReferenceImages ? `\n  // Reference images available in assets/images/\n  referenceImages = ${JSON.stringify(referenceImages.map(img => path.basename(img)))};` : ''}
+
+  ngOnInit(): void {
+    // Component initialization
+  }
+}
+`;
+    
+    const homeHtml = `<!-- Home page with Komodo components -->
+<div class="home-container">
+  <div class="hero-section">
+    <h1>{{ title }}</h1>
+    <p>{{ description }}</p>
+    
+    <!-- Example Komodo components -->
+    <!-- Uncomment and customize as needed -->
+    
+    <!-- <komodo-card>
+      <komodo-card-header>
+        <h2>Welcome</h2>
+      </komodo-card-header>
+      <komodo-card-content>
+        <p>Your application content here</p>
+      </komodo-card-content>
+    </komodo-card> -->
+    
+    <!-- <komodo-button (click)="onAction()">
+      Get Started
+    </komodo-button> -->
+  </div>
+  
+  ${hasReferenceImages ? `\n  <!-- UI structure based on reference images -->\n  <div class="content-section">\n    <p>This UI is designed to match the reference images found in src/assets/images/</p>\n    <!-- Add your Komodo components here to match the reference design -->\n  </div>\n  ` : ''}
+</div>
+`;
+    
+    const homeScss = `/* Home component styles matching reference design */
+.home-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.hero-section {
+  text-align: center;
+  padding: 48px 24px;
+  
+  h1 {
+    font-size: 2.5rem;
+    margin-bottom: 16px;
+    color: #1976d2;
+  }
+  
+  p {
+    font-size: 1.2rem;
+    color: #666;
+  }
+}
+
+.content-section {
+  margin-top: 32px;
+  padding: 24px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+}
+`;
+    
+    fs.mkdirSync(path.join(projectPath, 'src/app/features/home/components/home'), {recursive: true});
+    fs.writeFileSync(path.join(projectPath, 'src/app/features/home/home.module.ts'), homeModule);
+    fs.writeFileSync(path.join(projectPath, 'src/app/features/home/components/home/home.component.ts'), homeComponent);
+    fs.writeFileSync(path.join(projectPath, 'src/app/features/home/components/home/home.component.html'), homeHtml);
+    fs.writeFileSync(path.join(projectPath, 'src/app/features/home/components/home/home.component.scss'), homeScss);
+}
+
+function createEnvironments(projectPath) {
+    const envDev = `export const environment = {
+  production: false,
+  apiUrl: 'http://localhost:3000/api'
+};
+`;
+    
+    const envProd = `export const environment = {
+  production: true,
+  apiUrl: '/api'
+};
+`;
+    
+    fs.writeFileSync(path.join(projectPath, 'src/environments/environment.ts'), envDev);
+    fs.writeFileSync(path.join(projectPath, 'src/environments/environment.prod.ts'), envProd);
+}
+
+function createMainTs(projectPath) {
+    const mainTs = `import { platformBrowserDynamic } from '@angular/platform-browser-dynamic';
+import { AppModule } from './app/app.module';
+
+platformBrowserDynamic()
+  .bootstrapModule(AppModule, {
+    ngZoneEventCoalescing: true
+  })
+  .catch((err: Error) => console.error(err));
+`;
+    
+    fs.writeFileSync(path.join(projectPath, 'src/main.ts'), mainTs);
+    
+    // Also create index.html
+    const indexHtml = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Angular Application with Komodo Components</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+</head>
+<body>
+  <app-root></app-root>
+</body>
+</html>
+`;
+    
+    fs.writeFileSync(path.join(projectPath, 'src/index.html'), indexHtml);
+}
+
+function createStyles(projectPath, referenceImages) {
+    const hasReferenceImages = referenceImages.length > 0;
+    const refComment = hasReferenceImages ? 
+        `\n/* Styles designed to match reference images */\n/* Reference images available in assets/images/ */\n` : '';
+    
+    const stylesScss = `/* Global styles with Komodo theming */
+@import '@business-app-systems/komodo-ui/theming';
+
+${refComment}
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-size: 14px;
+  color: #333;
+  background-color: #fafafa;
+}
+
+/* Komodo theme customization */
+/* Add your custom theme variables here */
+`;
+    
+    fs.writeFileSync(path.join(projectPath, 'src/styles.scss'), stylesScss);
+}
+
+function createReadme(projectPath, projectName, config, referenceImages) {
+    const hasReferenceImages = referenceImages.length > 0;
+    const refSection = hasReferenceImages ? `
+
+## Reference Images
+
+This project includes UI reference images that guided the design:
+${referenceImages.map(img => `- \`${path.basename(img)}\` (copied to src/assets/images/)`).join('\n')}
+
+The UI components were generated using **Komodo Components** to match these reference designs.
+` : '';
+    
+    const readme = `# ${projectName}
+
+${config.description || 'Angular application with Komodo UI components'}
+${refSection}
+## Komodo Components
+
+This project uses **@business-app-systems/komodo-ui** components.
+
+**Komodo Component Library**: https://main--6871820252f4f69a29390192.chromatic.com/
+
+Available components include:
+- Accordion
+- Button
+- Card
+- Dialog
+- Form Controls
+- Navigation
+- Table
+- And many more...
+
+## Features
+
+${config.features.length > 0 ? config.features.map(f => `- ${f}`).join('\n') : '- Module-based architecture\n- Komodo UI components\n- SCSS styling\n- Routing'}
+
+## Prerequisites
+
+- Node.js 18+
+- npm 9+
+- Angular CLI 18+
+
+## Installation
+
+\`\`\`bash
+npm install
+\`\`\`
+
+## Development
+
+\`\`\`bash
+npm start
+\`\`\`
+
+Navigate to \`http://localhost:4200/\`
+
+## Build
+
+\`\`\`bash
+# Production build
+npm run build:prod
+
+# Development build
+npm run build
+\`\`\`
+
+## Project Structure
+
+- \`src/app/core/\` - Singleton services and core functionality
+- \`src/app/shared/\` - Reusable components, directives, pipes
+- \`src/app/layout/\` - Layout components (header, footer)
+- \`src/app/features/\` - Feature modules (lazy-loaded)
+- \`src/assets/\` - Static assets including reference images
+
+## Komodo Components Usage
+
+Import Komodo modules in your feature modules:
+
+\`\`\`typescript
+import { KomodoButtonModule, KomodoCardModule } from '@business-app-systems/komodo-ui';
+
+@NgModule({
+  imports: [
+    KomodoButtonModule,
+    KomodoCardModule
+  ]
+})
+\`\`\`
+
+Use in templates:
+
+\`\`\`html
+<komodo-button>Click Me</komodo-button>
+<komodo-card>
+  <komodo-card-header>Title</komodo-card-header>
+  <komodo-card-content>Content here</komodo-card-content>
+</komodo-card>
+\`\`\`
+
+## Generated by CodeGen Automator
+
+This project was automatically generated with:
+- Module-based architecture (NOT standalone)
+- Komodo UI component library
+- SCSS styling${hasReferenceImages ? '\n- UI matching reference images' : ''}
+`;
+    
+    fs.writeFileSync(path.join(projectPath, 'README.md'), readme);
+}
+
+function createConfigFiles(projectPath) {
+    const gitignore = `# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.angular/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+
+# Environment
+.env
+.env.local
+`;
+    
+    const editorconfig = `root = true
+
+[*]
+charset = utf-8
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.md]
+max_line_length = off
+trim_trailing_whitespace = false
+`;
+    
+    const npmrc = `legacy-peer-deps=true
+`;
+    
+    fs.writeFileSync(path.join(projectPath, '.gitignore'), gitignore);
+    fs.writeFileSync(path.join(projectPath, '.editorconfig'), editorconfig);
+    fs.writeFileSync(path.join(projectPath, '.npmrc'), npmrc);
 }
 
 function createDockerFiles(projectPath, projectName) {
@@ -335,9 +1061,18 @@ function main() {
         fs.mkdirSync(outputDir, { recursive: true });
     }
     
-    generateAngularProject(projectName, config, outputDir);
+    // Check for reference images in the current directory
+    const projectDir = process.cwd();
+    const referenceImages = findReferenceImages(projectDir);
+    
+    if (referenceImages.length > 0) {
+        console.log(`\n🎨 Found ${referenceImages.length} reference image(s) for UI generation`);
+    }
+    
+    generateAngularProject(projectName, config, outputDir, referenceImages);
 }
 
 if (require.main === module) {
     main();
 }
+

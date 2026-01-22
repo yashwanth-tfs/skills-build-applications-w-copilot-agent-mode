@@ -1,0 +1,53 @@
+name: 📤 Create Separate Repository
+description: Move a generated project to its own repository
+title: "[REPO] Create repository for <project-name>"
+labels: ["create-repo"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Create Separate Repository
+        
+        Use this template to move a generated project to its own standalone repository.
+        The project will be copied from `generated-projects/` to a new repository.
+  
+  - type: input
+    id: project_name
+    attributes:
+      label: Project Name
+      description: Name of the project in generated-projects/ folder
+      placeholder: my-awesome-app
+    validations:
+      required: true
+  
+  - type: dropdown
+    id: repo_visibility
+    attributes:
+      label: Repository Visibility
+      description: Should the new repository be public or private?
+      options:
+        - private
+        - public
+    validations:
+      required: true
+  
+  - type: input
+    id: target_org
+    attributes:
+      label: Target Organization (Optional)
+      description: Leave empty to create in your personal account
+      placeholder: my-organization
+    validations:
+      required: false
+  
+  - type: textarea
+    id: additional_setup
+    attributes:
+      label: Additional Setup Steps
+      description: Any additional configuration needed after repository creation
+      placeholder: |
+        - Add collaborators
+        - Configure branch protection
+        - Set up CI/CD secrets
+    validations:
+      required: false
