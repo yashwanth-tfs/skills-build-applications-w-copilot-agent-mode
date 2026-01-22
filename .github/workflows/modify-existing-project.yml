@@ -2,12 +2,12 @@ name: Modify Existing Project
 
 on:
   issues:
-    types: [opened, labeled]
+    types: [labeled]
 
 jobs:
   check-modification-request:
     runs-on: ubuntu-latest
-    if: contains(github.event.issue.labels.*.name, 'modify-existing')
+    if: github.event.label.name == 'modify-existing'
     outputs:
       target_repo: ${{ steps.parse.outputs.target_repo }}
       modification_type: ${{ steps.parse.outputs.modification_type }}

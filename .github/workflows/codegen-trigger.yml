@@ -13,6 +13,8 @@ jobs:
   parse-issue:
     name: Parse Issue and Trigger Codespace
     runs-on: ubuntu-latest
+    # Only run if issue has python or angular label
+    if: contains(github.event.issue.labels.*.name, 'python') || contains(github.event.issue.labels.*.name, 'angular')
     outputs:
       project_type: ${{ steps.parse.outputs.project_type }}
       project_name: ${{ steps.parse.outputs.project_name }}
@@ -24,26 +26,18 @@ jobs:
           echo "Issue labels: ${{ toJSON(github.event.issue.labels) }}"
           echo "Issue title: ${{ github.event.issue.title }}"
           echo "Issue number: ${{ github.event.issue.number }}"
-      
-      - name: Check if codegen issue
-        id: check
-        run: |
-          LABELS='${{ toJSON(github.event.issue.labels.*.name) }}'
-          echo "Labels JSON: $LABELS"
           
+          # Verify this is a codegen issue
+          LABELS='${{ toJSON(github.event.issue.labels.*.name) }}'
           if echo "$LABELS" | grep -q "python"; then
-            echo "is_codegen=true" >> $GITHUB_OUTPUT
-            echo "Found python label"
+            echo "✅ Detected: Python project"
           elif echo "$LABELS" | grep -q "angular"; then
-            echo "is_codegen=true" >> $GITHUB_OUTPUT
-            echo "Found angular label"
+            echo "✅ Detected: Angular project"
           else
-            echo "is_codegen=false" >> $GITHUB_OUTPUT
-            echo "No codegen labels found"
+            echo "⚠️ Not a codegen issue (no python/angular label)"
             exit 1
           fi
-          
-
+      
       - name: Checkout repository
         uses: actions/checkout@v4
         
@@ -135,8 +129,19 @@ jobs:
       - name: Generate project code
         id: generate
         run: |
+          echo "========================================"
+          echo "Starting code generation"
+          echo "Project Type: ${{ needs.parse-issue.outputs.project_type }}"
+          echo "Project Name: ${{ needs.parse-issue.outputs.project_name }}"
+          echo "Issue Number: ${{ needs.parse-issue.outputs.issue_number }}"
+          echo "========================================"
+          
           chmod +x scripts/generate-project.sh
           ./scripts/generate-project.sh "${{ needs.parse-issue.outputs.project_type }}" "${{ needs.parse-issue.outputs.issue_number }}"
+          
+          echo "========================================"
+          echo "Code generation completed"
+          echo "========================================"
           
       - name: Commit generated code
         run: |
