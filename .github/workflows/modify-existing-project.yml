@@ -86,6 +86,10 @@ jobs:
       
       - name: Apply modifications
         working-directory: target-repo
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_ENDPOINT: ${{ secrets.OPENAI_ENDPOINT }}
+          OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
         run: |
           # Detect project type
           if [ -f "package.json" ]; then
@@ -98,6 +102,18 @@ jobs:
           fi
           
           echo "Detected project type: $PROJECT_TYPE"
+          
+          if [ -n "$OPENAI_API_KEY" ]; then
+            echo "✅ OpenAI API Key configured - AI generation enabled"
+            if [ -n "$OPENAI_ENDPOINT" ]; then
+              echo "🔗 Custom endpoint: $OPENAI_ENDPOINT"
+            fi
+            if [ -n "$OPENAI_MODEL" ]; then
+              echo "🤖 Using model: $OPENAI_MODEL"
+            fi
+          else
+            echo "⚠️  OpenAI API Key not configured - falling back to templates"
+          fi
           
           # Apply modifications based on type
           if [ "$PROJECT_TYPE" = "angular" ]; then

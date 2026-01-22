@@ -125,15 +125,35 @@ jobs:
         run: |
           npm install -g @angular/cli
           pip install cookiecutter
+          # Install AI code generation dependencies
+          pip install -r requirements.txt || echo "No Python requirements found"
+          npm install || echo "No Node.js dependencies found"
           
       - name: Generate project code
         id: generate
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_ENDPOINT: ${{ secrets.OPENAI_ENDPOINT }}
+          OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
         run: |
           echo "========================================"
           echo "Starting code generation"
           echo "Project Type: ${{ needs.parse-issue.outputs.project_type }}"
           echo "Project Name: ${{ needs.parse-issue.outputs.project_name }}"
           echo "Issue Number: ${{ needs.parse-issue.outputs.issue_number }}"
+          if [ -n "$OPENAI_API_KEY" ]; then
+            echo "✅ OpenAI API Key configured - AI generation enabled"
+            if [ -n "$OPENAI_ENDPOINT" ]; then
+              echo "🔗 Custom endpoint: $OPENAI_ENDPOINT"
+            fi
+            if [ -n "$OPENAI_MODEL" ]; then
+              echo "🤖 Using model: $OPENAI_MODEL"
+            else
+              echo "🤖 Using default model: gpt-4"
+            fi
+          else
+            echo "⚠️  OpenAI API Key not configured - falling back to templates"
+          fi
           echo "========================================"
           
           chmod +x scripts/generate-project.sh

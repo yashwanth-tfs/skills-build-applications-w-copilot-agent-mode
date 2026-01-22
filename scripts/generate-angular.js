@@ -9,6 +9,82 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
+// Try to import OpenAI - gracefully degrade if not available
+let OpenAI;
+let OPENAI_AVAILABLE = false;
+try {
+    OpenAI = require('openai');
+    OPENAI_AVAILABLE = true;
+} catch (error) {
+    console.warn('⚠️  OpenAI library not found. AI-powered code generation will be disabled.');
+    console.warn('   Install with: npm install openai');
+}
+
+/**
+ * Generate code using OpenAI API
+ * 
+ * @param {string} prompt - The generation prompt
+ * @param {string} model - Model to use (defaults to env OPENAI_MODEL or 'gpt-4')
+ * @param {number} maxTokens - Maximum tokens in response
+ * 
+ * Environment Variables:
+ *   OPENAI_API_KEY: API key for authentication (required)
+ *   OPENAI_ENDPOINT: Custom endpoint URL (optional, for Azure OpenAI or custom deployments)
+ *   OPENAI_MODEL: Default model to use (optional, defaults to 'gpt-4')
+ */
+async function generateCodeWithAI(prompt, model = null, maxTokens = 2000) {
+    if (!OPENAI_AVAILABLE) {
+        console.warn('   ⚠️  OpenAI not available, falling back to template');
+        return null;
+    }
+
+    // Get configuration from environment
+    const apiKey = process.env.OPENAI_API_KEY;
+    const endpoint = process.env.OPENAI_ENDPOINT;  // Optional: for Azure OpenAI or custom endpoints
+    const defaultModel = process.env.OPENAI_MODEL || 'gpt-4';
+    
+    if (!apiKey) {
+        console.warn('   ⚠️  OPENAI_API_KEY environment variable not set, falling back to template');
+        return null;
+    }
+
+    // Use provided model or default from environment
+    const selectedModel = model || defaultModel;
+
+    try {
+        // Create client with custom endpoint if provided
+        const clientConfig = { apiKey };
+        if (endpoint) {
+            clientConfig.baseURL = endpoint;
+            console.log(`   🔗 Using custom OpenAI endpoint: ${endpoint}`);
+        }
+        
+        const openai = new OpenAI(clientConfig);
+        console.log(`   🤖 Generating code with model: ${selectedModel}`);
+        
+        const response = await openai.chat.completions.create({
+            model: selectedModel,
+            messages: [
+                {
+                    role: 'system',
+                    content: 'You are an expert Angular developer. Generate clean, production-ready TypeScript/Angular code following best practices. Include proper typing, error handling, and documentation.'
+                },
+                {
+                    role: 'user',
+                    content: prompt
+                }
+            ],
+            temperature: 0.7,
+            max_tokens: maxTokens
+        });
+
+        return response.choices[0].message.content.trim();
+    } catch (error) {
+        console.warn(`   ⚠️  OpenAI API error: ${error.message}, falling back to template`);
+        return null;
+    }
+}
+
 /**
  * Check for reference images in the project directory
  */
@@ -218,7 +294,7 @@ function getDescriptionSummary(description, maxLength = 100) {
     return truncated.substring(0, truncated.lastIndexOf(' ')) + '...';
 }
 
-function generateAngularProject(projectName, config, outputDir, referenceImages) {
+async function generateAngularProject(projectName, config, outputDir, referenceImages) {
     console.log(`Generating Angular project: ${projectName}`);
     
     // Extract entities from description
@@ -236,12 +312,12 @@ function generateAngularProject(projectName, config, outputDir, referenceImages)
     
     // Create basic module-based structure (not standalone)
     console.log('Creating module-based Angular project structure...');
-    createModuleBasedStructure(projectPath, projectName, config, referenceImages);
+    await createModuleBasedStructure(projectPath, projectName, config, referenceImages);
     
     console.log(`✅ Angular project created at ${projectPath}`);
 }
 
-function createModuleBasedStructure(projectPath, projectName, config, referenceImages) {
+async function createModuleBasedStructure(projectPath, projectName, config, referenceImages) {
     console.log('Creating module-based Angular structure with Komodo components...');
     
     const entities = config.entities || ['item'];
@@ -1123,6 +1199,274 @@ trim_trailing_whitespace = false
     fs.writeFileSync(path.join(projectPath, '.gitignore'), gitignore);
     fs.writeFileSync(path.join(projectPath, '.editorconfig'), editorconfig);
     fs.writeFileSync(path.join(projectPath, '.npmrc'), npmrc);
+    
+    // Generate entity-specific components and services
+    const entities = config.entities || [];
+    if (entities.length > 0) {
+        console.log('\n📦 Generating entity-specific features...');
+        for (const entity of entities) {
+            console.log(`   ✓ Generating ${entity} feature...`);
+            await generateEntityFeature(projectPath, entity, config.description);
+        }
+    }
+}
+
+/**
+ * Generate entity-specific component with AI or template
+ */
+async function generateEntityComponent(entityName, description = '', useAI = true) {
+    const entityClass = capitalize(entityName);
+    const entityPlural = pluralize(entityName);
+    
+    // Try AI generation first
+    if (useAI && description) {
+        const aiPrompt = `Generate an Angular component for managing '${entityName}' entities in a ${description}.
+
+Requirements:
+1. Component class name: ${entityClass}ListComponent
+2. Use Angular 17+ patterns with standalone: false (module-based)
+3. Include TypeScript interface for ${entityClass} with relevant properties based on context
+4. Include CRUD operations: list, create, update, delete
+5. Use reactive forms for create/edit
+6. Include error handling and loading states
+7. Use modern Angular patterns (signals, inject(), etc.)
+8. Include proper typing and documentation
+9. Return ONLY the TypeScript component code, no explanations
+
+Generate the component.ts file content:`;
+
+        const aiCode = await generateCodeWithAI(aiPrompt, null, 3000);
+        if (aiCode) {
+            // Clean up markdown code blocks if present
+            let cleanCode = aiCode.replace(/```typescript\n?/g, '').replace(/```\n?/g, '');
+            return cleanCode;
+        }
+    }
+    
+    // Fallback to template
+    return `import { Component, OnInit } from '@angular/core';
+import { ${entityClass}Service } from '../../services/${entityName}.service';
+import { ${entityClass} } from '../../../core/interfaces/${entityName}.interface';
+
+@Component({
+  selector: 'app-${entityName}-list',
+  templateUrl: './${entityName}-list.component.html',
+  styleUrls: ['./${entityName}-list.component.scss'],
+  standalone: false
+})
+export class ${entityClass}ListComponent implements OnInit {
+  ${entityPlural}: ${entityClass}[] = [];
+  loading = false;
+  error: string | null = null;
+
+  constructor(private ${entityName}Service: ${entityClass}Service) {}
+
+  ngOnInit(): void {
+    this.load${entityClass}s();
+  }
+
+  load${entityClass}s(): void {
+    this.loading = true;
+    this.${entityName}Service.getAll().subscribe({
+      next: (data) => {
+        this.${entityPlural} = data;
+        this.loading = false;
+      },
+      error: (err) => {
+        this.error = 'Failed to load ${entityPlural}';
+        this.loading = false;
+      }
+    });
+  }
+
+  delete${entityClass}(id: number): void {
+    if (confirm('Are you sure?')) {
+      this.${entityName}Service.delete(id).subscribe({
+        next: () => this.load${entityClass}s(),
+        error: (err) => this.error = 'Failed to delete ${entityName}'
+      });
+    }
+  }
+}
+`;
+}
+
+/**
+ * Generate entity-specific service with AI or template
+ */
+async function generateEntityService(entityName, description = '', useAI = true) {
+    const entityClass = capitalize(entityName);
+    const entityPlural = pluralize(entityName);
+    
+    // Try AI generation first
+    if (useAI && description) {
+        const aiPrompt = `Generate an Angular service for managing '${entityName}' entities in a ${description}.
+
+Requirements:
+1. Service class name: ${entityClass}Service
+2. Use HttpClient for API calls
+3. Include methods: getAll(), getById(id), create(data), update(id, data), delete(id)
+4. Return Observables with proper typing
+5. Include error handling
+6. Use environment.apiUrl for base URL
+7. Include proper TypeScript interfaces
+8. Return ONLY the TypeScript service code, no explanations
+
+Generate the service.ts file content:`;
+
+        const aiCode = await generateCodeWithAI(aiPrompt, null, 2000);
+        if (aiCode) {
+            // Clean up markdown code blocks if present
+            let cleanCode = aiCode.replace(/```typescript\n?/g, '').replace(/```\n?/g, '');
+            return cleanCode;
+        }
+    }
+    
+    // Fallback to template
+    return `import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
+import { ${entityClass} } from '../../core/interfaces/${entityName}.interface';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class ${entityClass}Service {
+  private apiUrl = \`\${environment.apiUrl}/${entityPlural}\`;
+
+  constructor(private http: HttpClient) {}
+
+  getAll(): Observable<${entityClass}[]> {
+    return this.http.get<${entityClass}[]>(this.apiUrl);
+  }
+
+  getById(id: number): Observable<${entityClass}> {
+    return this.http.get<${entityClass}>(\`\${this.apiUrl}/\${id}\`);
+  }
+
+  create(data: Partial<${entityClass}>): Observable<${entityClass}> {
+    return this.http.post<${entityClass}>(this.apiUrl, data);
+  }
+
+  update(id: number, data: Partial<${entityClass}>): Observable<${entityClass}> {
+    return this.http.put<${entityClass}>(\`\${this.apiUrl}/\${id}\`, data);
+  }
+
+  delete(id: number): Observable<void> {
+    return this.http.delete<void>(\`\${this.apiUrl}/\${id}\`);
+  }
+}
+`;
+}
+
+/**
+ * Generate complete entity feature (module, component, service, interface)
+ */
+async function generateEntityFeature(projectPath, entityName, description) {
+    const entityClass = capitalize(entityName);
+    const entityPlural = pluralize(entityName);
+    const featurePath = path.join(projectPath, 'src/app/features', entityPlural);
+    
+    // Generate component
+    const componentCode = await generateEntityComponent(entityName, description);
+    fs.writeFileSync(
+        path.join(featurePath, 'components', `${entityName}-list.component.ts`),
+        componentCode
+    );
+    
+    // Generate component HTML template
+    const componentHtml = `<div class="${entityName}-list">
+  <h2>${entityClass} Management</h2>
+  
+  <div *ngIf="loading" class="loading">Loading...</div>
+  <div *ngIf="error" class="error">{{ error }}</div>
+  
+  <div class="${entityPlural}-grid">
+    <div *ngFor="let ${entityName} of ${entityPlural}" class="${entityName}-card">
+      <h3>{{ ${entityName}.name || ${entityName}.title }}</h3>
+      <button (click)="delete${entityClass}(${entityName}.id)">Delete</button>
+    </div>
+  </div>
+</div>
+`;
+    fs.writeFileSync(
+        path.join(featurePath, 'components', `${entityName}-list.component.html`),
+        componentHtml
+    );
+    
+    // Generate component SCSS
+    const componentScss = `.${entityName}-list {
+  padding: 20px;
+  
+  .${entityPlural}-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+  }
+  
+  .${entityName}-card {
+    border: 1px solid #ddd;
+    padding: 15px;
+    border-radius: 8px;
+  }
+}
+`;
+    fs.writeFileSync(
+        path.join(featurePath, 'components', `${entityName}-list.component.scss`),
+        componentScss
+    );
+    
+    // Generate service
+    const serviceCode = await generateEntityService(entityName, description);
+    fs.writeFileSync(
+        path.join(featurePath, 'services', `${entityName}.service.ts`),
+        serviceCode
+    );
+    
+    // Generate interface
+    const interfaceCode = `export interface ${entityClass} {
+  id: number;
+  name: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+`;
+    fs.writeFileSync(
+        path.join(projectPath, 'src/app/core/interfaces', `${entityName}.interface.ts`),
+        interfaceCode
+    );
+    
+    // Generate feature module
+    const moduleCode = `import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterModule, Routes } from '@angular/router';
+import { SharedModule } from '../../shared/shared.module';
+import { ${entityClass}ListComponent } from './components/${entityName}-list.component';
+
+const routes: Routes = [
+  { path: '', component: ${entityClass}ListComponent }
+];
+
+@NgModule({
+  declarations: [${entityClass}ListComponent],
+  imports: [
+    CommonModule,
+    SharedModule,
+    RouterModule.forChild(routes)
+  ]
+})
+export class ${entityClass}Module { }
+`;
+    fs.writeFileSync(
+        path.join(featurePath, `${entityName}.module.ts`),
+        moduleCode
+    );
+}
+
+function capitalize(str) {
+    return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
 function createDockerFiles(projectPath, projectName) {
@@ -1162,7 +1506,7 @@ services:
     fs.writeFileSync(path.join(projectPath, 'docker-compose.yml'), dockerCompose);
 }
 
-function main() {
+async function main() {
     if (process.argv.length < 4) {
         console.error('Usage: generate-angular.js <project_name> <metadata_file>');
         process.exit(1);
@@ -1190,7 +1534,7 @@ function main() {
         console.log(`\n🎨 Found ${referenceImages.length} reference image(s) for UI generation`);
     }
     
-    generateAngularProject(projectName, config, outputDir, referenceImages);
+    await generateAngularProject(projectName, config, outputDir, referenceImages);
 }
 
 if (require.main === module) {

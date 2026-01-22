@@ -10,6 +10,15 @@ import json
 import re
 from pathlib import Path
 
+# Check if OpenAI is available
+try:
+    from openai import OpenAI
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+    print("⚠️  OpenAI not installed. Using template-based generation.")
+    print("   Install with: pip install openai")
+
 
 def get_description_summary(description, max_length=100):
     """Get a summary of the description (first sentence or max_length chars)"""
@@ -26,6 +35,59 @@ def get_description_summary(description, max_length=100):
         return description
     
     return description[:max_length].rsplit(' ', 1)[0] + '...'
+
+
+def generate_code_with_ai(prompt, model=None, max_tokens=2000):
+    """Generate code using OpenAI API
+    
+    Args:
+        prompt: The generation prompt
+        model: Model to use (defaults to env OPENAI_MODEL or 'gpt-4')
+        max_tokens: Maximum tokens in response
+    
+    Environment Variables:
+        OPENAI_API_KEY: API key for authentication
+        OPENAI_ENDPOINT: Custom endpoint URL (optional, for Azure OpenAI or custom deployments)
+        OPENAI_MODEL: Default model to use (optional, defaults to 'gpt-4')
+    """
+    if not OPENAI_AVAILABLE:
+        return None
+    
+    # Get configuration from environment
+    api_key = os.environ.get('OPENAI_API_KEY')
+    endpoint = os.environ.get('OPENAI_ENDPOINT')  # Optional: for Azure OpenAI or custom endpoints
+    default_model = os.environ.get('OPENAI_MODEL', 'gpt-4')
+    
+    if not api_key:
+        print("⚠️  OPENAI_API_KEY not found in environment. Using templates.")
+        return None
+    
+    # Use provided model or default from environment
+    selected_model = model if model else default_model
+    
+    try:
+        # Create client with custom endpoint if provided
+        if endpoint:
+            client = OpenAI(api_key=api_key, base_url=endpoint)
+            print(f"🔗 Using custom OpenAI endpoint: {endpoint}")
+        else:
+            client = OpenAI(api_key=api_key)
+        
+        print(f"🤖 Generating code with model: {selected_model}")
+        
+        response = client.chat.completions.create(
+            model=selected_model,
+            messages=[
+                {"role": "system", "content": "You are an expert software engineer. Generate clean, production-ready code with proper error handling, type hints, and documentation. Return ONLY the code, no explanations."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=max_tokens,
+            temperature=0.7
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        print(f"⚠️  OpenAI API error: {e}. Falling back to templates.")
+        return None
 
 
 def parse_issue_body(issue_body):
@@ -141,10 +203,39 @@ def extract_entities_from_description(description):
     return entities[:3]
 
 
-def generate_fastapi_endpoints_for_entity(entity_name):
+def generate_fastapi_endpoints_for_entity(entity_name, description="", use_ai=True):
     """Generate FastAPI endpoint code for a specific entity"""
     entity_class = entity_name.capitalize()
     
+    # Try AI generation first
+    if use_ai and description:
+        ai_prompt = f"""Generate FastAPI endpoint code for a '{entity_name}' entity in a {description}.
+
+Requirements:
+1. Create Pydantic models: {entity_class}Base, {entity_class}Create, {entity_class}Update, {entity_class}
+2. The models should have fields relevant to a {entity_name} in the context: {description}
+3. Include proper type hints and Field validators
+4. Create an in-memory database list called {entity_name}_db with 2 sample items
+5. Generate complete CRUD endpoints:
+   - GET /api/{pluralize(entity_name)} - list all
+   - GET /api/{pluralize(entity_name)}/{{id}} - get one
+   - POST /api/{pluralize(entity_name)} - create
+   - PUT /api/{pluralize(entity_name)}/{{id}} - update
+   - DELETE /api/{pluralize(entity_name)}/{{id}} - delete
+6. Use proper HTTP status codes and error handling
+7. Add docstrings to all functions
+8. Use datetime.now() for timestamps
+
+Return ONLY the Python code, no markdown or explanations."""
+
+        ai_code = generate_code_with_ai(ai_prompt, max_tokens=3000)
+        if ai_code:
+            # Clean up markdown code blocks if present
+            ai_code = re.sub(r'```python\n?', '', ai_code)
+            ai_code = re.sub(r'```\n?', '', ai_code)
+            return ai_code
+    
+    # Fallback to template-based generation
     # Proper English pluralization
     if entity_name.endswith('y'):
         # category -> categories, inventory -> inventories
@@ -244,10 +335,34 @@ def delete_{entity_name}(item_id: int):
     return code
 
 
-def generate_django_model_for_entity(entity_name):
+def generate_django_model_for_entity(entity_name, description="", use_ai=True):
     """Generate Django model code for a specific entity"""
     entity_class = entity_name.capitalize()
     
+    # Try AI generation first
+    if use_ai and description:
+        ai_prompt = f"""Generate a Django model for a '{entity_name}' entity in a {description}.
+
+Requirements:
+1. Class name: {entity_class}
+2. Inherit from models.Model
+3. Include fields relevant to a {entity_name} in the context: {description}
+4. Always include: created_at (DateTimeField auto_now_add), updated_at (DateTimeField auto_now)
+5. Add a __str__ method
+6. Include a Meta class with ordering = ['-created_at']
+7. Add verbose_name and verbose_name_plural
+8. Use appropriate Django field types (CharField, TextField, EmailField, etc.)
+9. Add help_text to fields where appropriate
+
+Return ONLY the Python code for the model class, no markdown or explanations."""
+
+        ai_code = generate_code_with_ai(ai_prompt, max_tokens=1500)
+        if ai_code:
+            ai_code = re.sub(r'```python\n?', '', ai_code)
+            ai_code = re.sub(r'```\n?', '', ai_code)
+            return ai_code
+    
+    # Fallback to template
     code = f'''
 class {entity_class}(models.Model):
     name = models.CharField(max_length=200)
@@ -266,10 +381,34 @@ class {entity_class}(models.Model):
     return code
 
 
-def generate_flask_resource_for_entity(entity_name):
+def generate_flask_resource_for_entity(entity_name, description="", use_ai=True):
     """Generate Flask Resource code for a specific entity"""
     entity_class = entity_name.capitalize()
     
+    # Try AI generation first
+    if use_ai and description:
+        ai_prompt = f"""Generate Flask-RESTful Resource classes for a '{entity_name}' entity in a {description}.
+
+Requirements:
+1. Create two classes: {entity_class}List and {entity_class}Detail
+2. Create an in-memory data store: {entity_name}_data = [dict with 2 sample items]
+3. Each sample item should have relevant fields for a {entity_name} in context: {description}
+4. {entity_class}List should have GET (list all) and POST (create) methods
+5. {entity_class}Detail should have GET (get one), PUT (update), DELETE methods
+6. Use proper HTTP status codes (200, 201, 404)
+7. Return JSON responses
+8. Add error handling for not found cases
+9. Include docstrings
+
+Return ONLY the Python code, no markdown or explanations."""
+
+        ai_code = generate_code_with_ai(ai_prompt, max_tokens=2500)
+        if ai_code:
+            ai_code = re.sub(r'```python\n?', '', ai_code)
+            ai_code = re.sub(r'```\n?', '', ai_code)
+            return ai_code
+    
+    # Fallback to template
     # Proper pluralization
     if entity_name.endswith('y'):
         entity_plural = entity_name[:-1] + 'ies'
@@ -545,7 +684,7 @@ class ApiConfig(AppConfig):
     
     # Generate entity-specific models
     models_imports = "from django.db import models\n"
-    models_code = "\n".join([generate_django_model_for_entity(entity) for entity in entities])
+    models_code = "\n".join([generate_django_model_for_entity(entity, config['description']) for entity in entities])
     (api_dir / 'models.py').write_text(models_imports + models_code)
     
     # Generate entity-specific serializers
@@ -746,7 +885,7 @@ python app.py
     (project_path / 'README.md').write_text(readme_content)
     
     # Create app.py with entity-specific structure
-    resources_code = "\n".join([generate_flask_resource_for_entity(entity) for entity in entities])
+    resources_code = "\n".join([generate_flask_resource_for_entity(entity, config['description']) for entity in entities])
     
     # Generate API resource registrations
     api_registrations = []
@@ -883,7 +1022,7 @@ def generate_fastapi_project(project_name, config, output_dir):
     
     # Generate entity-specific endpoints
     entities = config.get('entities', ['item'])
-    entity_endpoints = '\n'.join([generate_fastapi_endpoints_for_entity(entity) for entity in entities])
+    entity_endpoints = '\n'.join([generate_fastapi_endpoints_for_entity(entity, config['description']) for entity in entities])
     
     # Collect all endpoint paths for the root endpoint
     all_endpoints = []

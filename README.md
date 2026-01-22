@@ -1,25 +1,50 @@
 # CodeGen Automator 🤖
 
-Automatically generate Python and Angular projects in GitHub Codespaces with human approval workflow. Also supports creating separate repositories and modifying existing projects.
+Automatically generate Python and Angular projects in GitHub Codespaces with AI-powered code generation and human approval workflow. Also supports creating separate repositories and modifying existing projects.
 
 ## 🌟 Features
 
-### Code Generation
+### AI-Powered Code Generation
+- **OpenAI Integration**: Generate context-aware, production-ready code using GPT-4
+- **Intelligent Entity Detection**: Analyzes project descriptions and creates relevant entities
 - **Template Selection**: Choose from Python (Django/Flask/FastAPI) or Angular project templates via GitHub Issues
 - **Automated Code Generation**: Automatically generates complete project scaffolding (40+ files)
-- **Intelligent Entity Extraction**: FastAPI generator analyzes project descriptions and creates entity-specific endpoints
+- **Smart Fallback**: If OpenAI is unavailable or fails, gracefully falls back to template-based generation
 - **Komodo UI Integration**: Angular projects include ThermoFisher's Komodo component library
 - **Enterprise Architecture**: Module-based patterns with layered structure (API → Service → Repository)
 - **Reference Image Support**: Automatically detects and uses UI mockups for Angular generation
 
-### Intelligent Code Generation
+### AI-Enhanced Entity Generation
 
-The FastAPI generator includes smart entity detection that analyzes your project description and automatically creates context-aware endpoints:
+The generators now use OpenAI GPT-4 to create truly context-aware code instead of generic templates:
 
-**Example:** Instead of generic "Item" CRUD operations, describe your project:
-- *"A blog API with posts, comments, and user management"* → Generates `User`, `Post`, `Comment` endpoints
-- *"E-commerce platform with products, orders, and customers"* → Generates `Product`, `Order`, `Customer` endpoints
-- *"Task management system with projects and categories"* → Generates `Task`, `Project`, `Category` endpoints
+**How It Works:**
+1. You describe your project: *"A blog platform for developers to share technical articles"*
+2. AI analyzes the context and generates:
+   - **FastAPI**: Custom Pydantic models with blog-specific fields (title, content, author, tags, publishedAt)
+   - **Django**: Django ORM models with proper field types, Meta classes, and help text
+   - **Flask**: Flask-RESTful resources with relevant sample data
+   - **Angular**: Components and services tailored to blog management
+
+**Example Comparison:**
+
+*Template-based (old):*
+```python
+class Item:
+    name: str
+    description: str
+```
+
+*AI-generated (new) for "blog platform":*
+```python
+class Post:
+    title: str
+    content: str
+    author: str
+    tags: List[str]
+    published_at: datetime
+    view_count: int
+```
 
 **Supported Entities (20+ types):**
 - User, Product, Order, Post, Comment, Task, Project
@@ -27,11 +52,12 @@ The FastAPI generator includes smart entity detection that analyzes your project
 - Message, Notification, Report, Document, Inventory
 - Employee, Department, and more...
 
-Each detected entity gets complete CRUD endpoints with:
-- Pydantic models (Base, Create, Update, Response)
-- In-memory database with sample data
-- RESTful endpoints: GET, POST, PUT, DELETE
-- Interactive API documentation at `/docs`
+Each detected entity gets AI-generated code with:
+- Context-aware field names and types
+- Proper validation and constraints
+- Framework-specific best practices
+- Production-ready error handling
+- Comprehensive documentation
 
 ### Repository Management
 - **Separate Repository Creation**: Move generated projects to standalone repositories
@@ -40,6 +66,74 @@ Each detected entity gets complete CRUD endpoints with:
 - **GitHub Codespace Integration**: Opens generated code in a pre-configured Codespace environment
 - **Human Approval Workflow**: Review generated code before creating a Pull Request
 - **Zero Setup**: No local environment needed - everything runs in the cloud
+
+## 🔑 OpenAI Configuration
+
+To enable AI-powered code generation, you need to configure OpenAI settings:
+
+### Required Configuration
+
+1. **Get an OpenAI API Key**: Sign up at https://platform.openai.com/
+2. **Add to GitHub Secrets**:
+   - Go to your repository's Settings → Secrets and variables → Actions
+   - Click "New repository secret"
+   - Name: `OPENAI_API_KEY`
+   - Value: Your OpenAI API key (starts with `sk-`)
+
+### Optional Configuration
+
+For advanced use cases (Azure OpenAI, custom endpoints, or specific models):
+
+3. **Custom Endpoint** (Optional):
+   - Secret Name: `OPENAI_ENDPOINT`
+   - Value: Your custom endpoint URL (e.g., `https://your-resource.openai.azure.com/`)
+   - Use this for Azure OpenAI or custom OpenAI-compatible endpoints
+
+4. **Custom Model** (Optional):
+   - Secret Name: `OPENAI_MODEL`
+   - Value: Model name (e.g., `gpt-4`, `gpt-3.5-turbo`, `gpt-4-turbo`)
+   - Default: `gpt-4` if not specified
+
+### Environment Variables
+
+For local development, set these environment variables:
+
+```bash
+export OPENAI_API_KEY="sk-..."
+export OPENAI_ENDPOINT="https://your-endpoint.com/"  # Optional
+export OPENAI_MODEL="gpt-4-turbo"                     # Optional
+```
+
+Or create a `.env` file:
+
+```env
+OPENAI_API_KEY=sk-...
+OPENAI_ENDPOINT=https://your-endpoint.com/  # Optional for Azure OpenAI
+OPENAI_MODEL=gpt-4-turbo                    # Optional, defaults to gpt-4
+```
+
+3. **Install Dependencies**:
+   - Python: `pip install -r requirements.txt`
+   - Node.js: `npm install`
+
+**Without OpenAI Configuration:**
+- The generators will display warnings but continue to work
+- Falls back to template-based code generation
+- All functionality remains available, just without AI enhancements
+
+### Azure OpenAI Configuration
+
+To use Azure OpenAI:
+
+```bash
+export OPENAI_API_KEY="your-azure-api-key"
+export OPENAI_ENDPOINT="https://your-resource.openai.azure.com/"
+export OPENAI_MODEL="your-deployment-name"  # e.g., "gpt-4-deployment"
+```
+
+In GitHub Secrets, add all three as separate secrets.
+
+📖 **For detailed configuration options, see [OPENAI_CONFIG.md](OPENAI_CONFIG.md)**
 
 ## 🚀 How It Works
 

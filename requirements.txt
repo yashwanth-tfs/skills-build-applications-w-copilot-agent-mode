@@ -1,0 +1,2 @@
+# Python dependencies for code generation scripts
+openai>=1.0.0
