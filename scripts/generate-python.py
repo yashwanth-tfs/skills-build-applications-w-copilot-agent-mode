@@ -207,6 +207,17 @@ def generate_fastapi_endpoints_for_entity(entity_name, description="", use_ai=Tr
     """Generate FastAPI endpoint code for a specific entity"""
     entity_class = entity_name.capitalize()
     
+    # Proper English pluralization
+    if entity_name.endswith('y'):
+        # category -> categories, inventory -> inventories
+        entity_plural = entity_name[:-1] + 'ies'
+    elif entity_name.endswith('s'):
+        # business -> business (already plural)
+        entity_plural = entity_name
+    else:
+        # user -> users, product -> products
+        entity_plural = entity_name + 's'
+    
     # Try AI generation first
     if use_ai and description:
         ai_prompt = f"""Generate FastAPI endpoint code for a '{entity_name}' entity in a {description}.
@@ -217,11 +228,11 @@ Requirements:
 3. Include proper type hints and Field validators
 4. Create an in-memory database list called {entity_name}_db with 2 sample items
 5. Generate complete CRUD endpoints:
-   - GET /api/{pluralize(entity_name)} - list all
-   - GET /api/{pluralize(entity_name)}/{{id}} - get one
-   - POST /api/{pluralize(entity_name)} - create
-   - PUT /api/{pluralize(entity_name)}/{{id}} - update
-   - DELETE /api/{pluralize(entity_name)}/{{id}} - delete
+   - GET /api/{entity_plural} - list all
+   - GET /api/{entity_plural}/{{id}} - get one
+   - POST /api/{entity_plural} - create
+   - PUT /api/{entity_plural}/{{id}} - update
+   - DELETE /api/{entity_plural}/{{id}} - delete
 6. Use proper HTTP status codes and error handling
 7. Add docstrings to all functions
 8. Use datetime.now() for timestamps
@@ -236,16 +247,6 @@ Return ONLY the Python code, no markdown or explanations."""
             return ai_code
     
     # Fallback to template-based generation
-    # Proper English pluralization
-    if entity_name.endswith('y'):
-        # category -> categories, inventory -> inventories
-        entity_plural = entity_name[:-1] + 'ies'
-    elif entity_name.endswith('s'):
-        # business -> business (already plural)
-        entity_plural = entity_name
-    else:
-        # user -> users, product -> products
-        entity_plural = entity_name + 's'
     
     code = f'''
 # {entity_class} Pydantic models
