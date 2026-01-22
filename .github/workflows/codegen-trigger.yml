@@ -203,9 +203,20 @@ jobs:
                     `**Option 2: View in Browser**\n` +
                     `1. [📂 View Branch](${branchUrl})\n` +
                     `2. Click the "Code" button → "Codespaces" → "Create codespace on ${branchName}"\n\n` +
-                    `**After Review:**\n` +
-                    `- Comment \`/approve\` to create a Pull Request\n` +
-                    `- Comment \`/reject\` to close this issue\n\n` +
+                    `---\n\n` +
+                    `**After reviewing the code, choose an action:**\n\n` +
+                    `<table><tr><td>` +
+                    `<a href="${repoUrl}/issues/${{ needs.parse-issue.outputs.issue_number }}#new_comment_field" onclick="document.getElementById('new_comment_field').value='/approve';return false;">` +
+                    `<img src="https://img.shields.io/badge/✅_Approve-28a745?style=for-the-badge" alt="Approve"/>` +
+                    `</a>` +
+                    `</td><td>` +
+                    `<a href="${repoUrl}/issues/${{ needs.parse-issue.outputs.issue_number }}#new_comment_field" onclick="document.getElementById('new_comment_field').value='/reject';return false;">` +
+                    `<img src="https://img.shields.io/badge/❌_Reject-d73a49?style=for-the-badge" alt="Reject"/>` +
+                    `</a>` +
+                    `</td></tr></table>\n\n` +
+                    `**Quick Actions:**\n` +
+                    `- 👍 Click **[here to approve](${ repoUrl }/issues/${{ needs.parse-issue.outputs.issue_number }}#issue-comment-box)** - then type \`/approve\` and submit\n` +
+                    `- 👎 Click **[here to reject](${ repoUrl }/issues/${{ needs.parse-issue.outputs.issue_number }}#issue-comment-box)** - then type \`/reject\` and submit\n\n` +
                     `💡 The Codespace will have all dependencies pre-installed.`
             });
 
