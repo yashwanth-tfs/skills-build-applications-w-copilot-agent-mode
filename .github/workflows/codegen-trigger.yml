@@ -180,6 +180,14 @@ jobs:
             const branchUrl = `${repoUrl}/tree/${branchName}`;
             const codespaceUrl = `https://codespaces.new/${{ github.repository }}?ref=${branchName}`;
             
+            // Add auto-generate label so approval workflow can detect this issue
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ needs.parse-issue.outputs.issue_number }},
+              labels: ['auto-generate']
+            });
+            
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
