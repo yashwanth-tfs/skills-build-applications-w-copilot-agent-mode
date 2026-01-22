@@ -1538,6 +1538,8 @@ async function main() {
 }
 
 if (require.main === module) {
-    main();
+    main().catch(error => {
+        console.error('Error generating Angular project:', error);
+        process.exit(1);
+    });
 }
-
