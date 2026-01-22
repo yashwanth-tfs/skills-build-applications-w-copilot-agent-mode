@@ -11,6 +11,23 @@ import re
 from pathlib import Path
 
 
+def get_description_summary(description, max_length=100):
+    """Get a summary of the description (first sentence or max_length chars)"""
+    if not description:
+        return ''
+    
+    # Try to get first sentence
+    first_sentence = description.split('.')[0]
+    if len(first_sentence) <= max_length:
+        return first_sentence + '.'
+    
+    # If first sentence is too long, truncate
+    if len(description) <= max_length:
+        return description
+    
+    return description[:max_length].rsplit(' ', 1)[0] + '...'
+
+
 def parse_issue_body(issue_body):
     """Parse issue body to extract configuration"""
     config = {}
@@ -347,7 +364,7 @@ def generate_django_project(project_name, config, output_dir):
     # Create README.md
     readme_content = f"""# {project_name}
 
-{config['description']}
+{get_description_summary(config['description'])}
 
 ## Framework
 - Django 4.2
@@ -703,7 +720,7 @@ def generate_flask_project(project_name, config, output_dir):
     # Create README.md
     readme_content = f"""# {project_name}
 
-{config['description']}
+{get_description_summary(config['description'])}
 
 ## Framework
 - Flask 3.0
@@ -887,7 +904,7 @@ def generate_fastapi_project(project_name, config, output_dir):
     # Create README.md
     readme_content = f"""# {project_name}
 
-{config['description']}
+{get_description_summary(config['description'])}
 
 ## Framework
 - FastAPI
@@ -945,7 +962,7 @@ from decouple import config
 
 app = FastAPI(
     title="{project_name}",
-    description="{config['description']}",
+    description="{get_description_summary(config['description'])}",
     version="1.0.0"
 )
 

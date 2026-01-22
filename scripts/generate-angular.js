@@ -197,6 +197,27 @@ function pluralize(entity) {
     }
 }
 
+/**
+ * Get a summary of the description (first sentence or max 100 chars)
+ */
+function getDescriptionSummary(description, maxLength = 100) {
+    if (!description) return '';
+    
+    // Try to get first sentence
+    const firstSentence = description.split('.')[0];
+    if (firstSentence.length <= maxLength) {
+        return firstSentence + '.';
+    }
+    
+    // If first sentence is too long, truncate
+    if (description.length <= maxLength) {
+        return description;
+    }
+    
+    const truncated = description.substring(0, maxLength);
+    return truncated.substring(0, truncated.lastIndexOf(' ')) + '...';
+}
+
 function generateAngularProject(projectName, config, outputDir, referenceImages) {
     console.log(`Generating Angular project: ${projectName}`);
     
@@ -960,7 +981,7 @@ The UI components were generated using **Komodo Components** to match these refe
     
     const readme = `# ${projectName}
 
-${config.description || 'Angular application with Komodo UI components'}
+${getDescriptionSummary(config.description) || 'Angular application with Komodo UI components'}
 ${refSection}${entitiesSection}
 ## Komodo Components
 
