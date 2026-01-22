@@ -1,0 +1,7 @@
+{
+  "issue_number": 18,
+  "project_type": "angular",
+  "project_name": "audit-trail-ui",
+  "branch": "codegen/audit-trail-ui-18",
+  "issue_body": "### Project Name\n\naudit-trail-ui\n\n### Angular Version\n\nAngular 17 (Latest)\n\n### Styling Framework\n\nCSS\n\n### Additional Features\n\n- [x] Routing\n- [ ] State Management (NgRx)\n- [x] HTTP Client\n- [ ] Forms (Reactive & Template-driven)\n- [ ] Authentication Module\n- [ ] Unit Tests (Karma/Jasmine)\n- [ ] E2E Tests (Cypress)\n- [ ] Docker Support\n- [ ] PWA Support\n\n### Project Structure\n\nNgModule-based\n\n### Project Description\n\ncreate ui project with below feature\n\nreference image: \n<img width=\"1720\" height=\"667\" alt=\"Image\" src=\"https://github.com/user-attachments/assets/6c637ebe-65b4-44bf-b83f-a09ea16de351\" />\n\nAudit Log Viewer\n \n\nTable: timestamp, user, action, resource, ip_address\n\nFilters: user, action type, resource type, date range\n\nSearch: by resource ID or description\n\nPagination: 50 items per page\n\nDetail view: shows before/after changes (JSON diff)\n\nExport: CSV/PDF buttons\n\n### Confirmation\n\n- [x] I have reviewed the project requirements\n- [x] I understand this will create a new branch and PR\n"
+}
