@@ -80,6 +80,7 @@ jobs:
         if: contains(github.event.comment.body, '/approve')
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
             const issueNumber = context.payload.issue.number;
             const branchName = `${{ steps.metadata.outputs.branch }}`;
