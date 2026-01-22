@@ -7,7 +7,11 @@ on:
 jobs:
   check-modification-request:
     runs-on: ubuntu-latest
-    if: github.event.label.name == 'modify-existing'
+    # Only run when 'modify-existing' label is added, not other labels like 'auto-generate', 'python', 'angular'
+    # Also ensure the issue doesn't have 'auto-generate' label (which indicates it's a code generation issue, not modification)
+    if: |
+      github.event.label.name == 'modify-existing' &&
+      !contains(github.event.issue.labels.*.name, 'auto-generate')
     outputs:
       target_repo: ${{ steps.parse.outputs.target_repo }}
       modification_type: ${{ steps.parse.outputs.modification_type }}
