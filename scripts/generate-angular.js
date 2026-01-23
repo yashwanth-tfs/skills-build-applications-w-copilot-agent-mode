@@ -442,7 +442,7 @@ async function createModuleBasedStructure(projectPath, projectName, config, refe
     createReadme(projectPath, projectName, config, referenceImages);
     
     // Create .gitignore and .editorconfig
-    createConfigFiles(projectPath);
+    await createConfigFiles(projectPath, config);
     
     // Create Docker files for containerization
     createDockerFiles(projectPath, projectName);
@@ -1153,7 +1153,7 @@ This project was automatically generated with:
     fs.writeFileSync(path.join(projectPath, 'README.md'), readme);
 }
 
-function createConfigFiles(projectPath) {
+async function createConfigFiles(projectPath, config) {
     const gitignore = `# Dependencies
 node_modules/
 
