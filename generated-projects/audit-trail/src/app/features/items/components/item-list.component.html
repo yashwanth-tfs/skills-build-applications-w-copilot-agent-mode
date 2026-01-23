@@ -1,0 +1,13 @@
+<div class="item-list">
+  <h2>Item Management</h2>
+  
+  <div *ngIf="loading" class="loading">Loading...</div>
+  <div *ngIf="error" class="error">{{ error }}</div>
+  
+  <div class="items-grid">
+    <div *ngFor="let item of items" class="item-card">
+      <h3>{{ item.name || item.title }}</h3>
+      <button (click)="deleteItem(item.id)">Delete</button>
+    </div>
+  </div>
+</div>
